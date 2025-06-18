@@ -2,10 +2,23 @@ import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer } from 'ws';
+import { execSync } from 'child_process';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';  // Listen on all network interfaces
 const port = process.env.PORT || 3000;
+
+// Run database migration if in production
+if (process.env.NODE_ENV === 'production') {
+  try {
+    console.log('Running database migration...');
+    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+    console.log('Database migration completed successfully');
+  } catch (error) {
+    console.error('Database migration failed:', error.message);
+    console.log('Continuing without migration...');
+  }
+}
 
 // Prepare Next.js app
 const app = next({ dev, hostname, port });
@@ -126,5 +139,20 @@ app.prepare().then(() => {
   server.listen(port, hostname, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> WebSocket server is running on ws://${hostname}:${port}/api/ws`);
+    console.log(`> Environment: ${process.env.NODE_ENV}`);
+    console.log(`> Database URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
+  });
+
+  // Add error handling
+  server.on('error', (error) => {
+    console.error('Server error:', error);
+  });
+
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   });
 }); 
