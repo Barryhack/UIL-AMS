@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import Image from "next/image"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get("callbackUrl") || "/"
@@ -207,28 +207,23 @@ export default function LoginPage() {
                     checked={rememberMe}
                     onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                     disabled={isLoading}
-                    className="border-2 border-gray-200 data-[state=checked]:border-blue-500 data-[state=checked]:bg-blue-500"
                   />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm text-gray-600 cursor-pointer select-none"
-                  >
+                  <Label htmlFor="remember" className="text-sm text-gray-600">
                     Remember me
-                  </label>
+                  </Label>
                 </div>
               </CardContent>
-              
-              <CardFooter>
+              <CardFooter className="pt-4">
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-all duration-200 font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/20"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
-                    <div className="flex items-center justify-center">
+                    <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      <span>Signing in...</span>
-                    </div>
+                      Signing in...
+                    </>
                   ) : (
                     "Sign in"
                   )}
@@ -237,19 +232,19 @@ export default function LoginPage() {
             </form>
           </Card>
         </motion.div>
-
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="text-center text-sm text-gray-600 mt-6"
-        >
-          Need help? Contact{" "}
-          <a href="mailto:support@unilorin.edu.ng" className="text-blue-600 hover:text-blue-700 hover:underline">
-            IT Support
-          </a>
-        </motion.p>
       </motion.div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 } 
