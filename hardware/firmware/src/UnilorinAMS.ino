@@ -15,13 +15,13 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Network credentials
-const char* ssid = "Unilorin.Cloud";
-const char* password = "3ncrypti0n123";
+const char* ssid = "Galaxy S20 FE 35AF";
+const char* password = "ollk2898";
 
-// Server configuration
-const char* serverHost = "172.27.244.167";  // Your new IP address
-const int serverPort = 3000;
-const char* apiKey = "local-development-key";  // From your .env file
+// Server configuration - Updated for production
+const char* serverHost = "uil-ams.onrender.com";  // Production server
+const int serverPort = 443;  // HTTPS port
+const char* apiKey = "509cc08fdb241fbf694e5888db0b82b0";  // Production API key
 String deviceId;  // Will be set to MAC address
 String macAddress;
 
@@ -390,7 +390,7 @@ void checkServerConnection() {
         Serial.println("Please check:");
         Serial.println("1. Server is running");
         Serial.println("2. IP address is correct");
-        Serial.println("3. Port 3000 is open");
+        Serial.println("3. Port 443 is open");
         Serial.println("4. No firewall blocking");
         
         updateDisplay("Server Error", error.c_str(), "Check Config");

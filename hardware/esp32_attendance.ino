@@ -8,8 +8,8 @@
 #include <SPI.h>
 
 // Network credentials
-const char* ssid = "YourWiFiSSID";
-const char* password = "YourWiFiPassword";
+const char* ssid = "Galaxy S20 FE 35AF";
+const char* password = "ollk2898";
 
 // API configuration
 const char* apiEndpoint = "http://your-server:3000/api/hardware";

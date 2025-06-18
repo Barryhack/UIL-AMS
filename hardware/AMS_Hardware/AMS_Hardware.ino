@@ -6,6 +6,7 @@
 #include <SD.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WebSocketsClient.h>
 #include <Adafruit_Fingerprint.h>
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
@@ -33,11 +34,14 @@
 #define SCREEN_ADDRESS 0x3C
 
 // WiFi Credentials
-const char* ssid = "HUAWEI-5G-YqYd";
-const char* password = "6C7AZkXn";
+const char* ssid = "Galaxy S20 FE 35AF";
+const char* password = "ollk2898";
 
-// API Configuration
-const char* serverUrl = "http://your-server-url/api/attendance";
+// API Configuration - Updated for production
+const char* serverUrl = "https://uil-ams.onrender.com";  // Production server
+const char* wsServerUrl = "wss://uil-ams.onrender.com";  // WebSocket server
+const char* apiKey = "509cc08fdb241fbf694e5888db0b82b0";  // Production API key
+const char* deviceId = "";  // Will be set to MAC address
 
 // System Configuration
 #define MAX_FINGERPRINT_ATTEMPTS 2
@@ -57,15 +61,20 @@ bool isSDCardInitialized = false;
 bool isFingerprintInitialized = false;
 bool isRFIDInitialized = false;
 bool isDisplayInitialized = false;
+bool isWebSocketConnected = false;
 int fingerprintAttempts = 0;
 unsigned long lastSyncTime = 0;
 unsigned long lastHeartbeat = 0;
+unsigned long lastWebSocketReconnect = 0;
 bool isScanning = false;
 
 // Musical Notes (in Hz)
 const int BUZZER_C = 262;
 const int BUZZER_E = 330;
 const int BUZZER_G = 392;
+
+// WebSocket client
+WebSocketsClient webSocket;
 
 // Initialize I2C with retry mechanism
 bool initI2C() {
@@ -205,6 +214,14 @@ bool initWiFi() {
     Serial.println("WiFi connected successfully");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
+    isWiFiConnected = true;
+    
+    // Set device ID to MAC address
+    deviceId = WiFi.macAddress();
+    Serial.printf("Device ID: %s\n", deviceId.c_str());
+    
+    // Initialize WebSocket
+    initializeWebSocket();
     return true;
   }
   Serial.println("WiFi connection failed");
@@ -514,6 +531,56 @@ FingerprintHandler fingerprintHandler(&finger);
 RFIDHandler rfidHandler(&rfid);
 SDCardHandler sdCardHandler(SD_CS);
 
+// WebSocket Event Handler
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
+  switch(type) {
+    case WStype_DISCONNECTED:
+      isWebSocketConnected = false;
+      Serial.println("WebSocket disconnected");
+      break;
+      
+    case WStype_CONNECTED:
+      isWebSocketConnected = true;
+      Serial.println("WebSocket connected!");
+      
+      // Send device registration
+      DynamicJsonDocument doc(200);
+      doc["type"] = "device_register";
+      doc["deviceId"] = deviceId;
+      doc["macAddress"] = WiFi.macAddress();
+      doc["apiKey"] = apiKey;
+      
+      String jsonString;
+      serializeJson(doc, jsonString);
+      webSocket.sendTXT(jsonString);
+      break;
+      
+    case WStype_TEXT:
+      Serial.printf("Received: %s\n", payload);
+      break;
+      
+    case WStype_ERROR:
+      Serial.println("WebSocket error");
+      break;
+  }
+}
+
+void initializeWebSocket() {
+  Serial.println("Initializing WebSocket...");
+  
+  // Set WebSocket headers
+  String headers = "x-api-key: " + String(apiKey) + "\r\n";
+  headers += "x-device-id: " + deviceId + "\r\n";
+  headers += "x-mac-address: " + WiFi.macAddress() + "\r\n";
+  
+  webSocket.beginSSL(wsServerUrl, 443, "/api/ws");
+  webSocket.onEvent(webSocketEvent);
+  webSocket.setExtraHeaders(headers.c_str());
+  webSocket.setReconnectInterval(5000);
+  
+  Serial.println("WebSocket initialized");
+}
+
 void setup() {
   // Wait for serial connection
   Serial.begin(115200);
@@ -635,6 +702,14 @@ void setup() {
   if(WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi connected successfully");
     Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
+    isWiFiConnected = true;
+    
+    // Set device ID to MAC address
+    deviceId = WiFi.macAddress();
+    Serial.printf("Device ID: %s\n", deviceId.c_str());
+    
+    // Initialize WebSocket
+    initializeWebSocket();
   } else {
     Serial.println("\nWiFi connection failed");
   }
@@ -643,6 +718,16 @@ void setup() {
 }
 
 void loop() {
+  // Handle WebSocket communication
+  webSocket.loop();
+  
+  // Handle WebSocket reconnection
+  if (isWiFiConnected && !isWebSocketConnected && (millis() - lastWebSocketReconnect >= 10000)) {
+    lastWebSocketReconnect = millis();
+    Serial.println("Attempting WebSocket reconnection...");
+    initializeWebSocket();
+  }
+  
   // Handle Heartbeat
   if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL) {
     buzzerHandler.playHeartbeat();
@@ -683,17 +768,51 @@ void handleSuccessfulAuth(String method, String id) {
   displayHandler.showSuccess("Welcome!");
   buzzerHandler.playSuccessSound();
   
-  // Store attendance
-  if (isWiFiConnected) {
-    if (wifiHandler.sendData("/attendance", "{\"method\":\"" + method + "\",\"id\":\"" + id + "\"}")) {
-      displayHandler.showSuccess("Attendance Recorded");
+  // Create attendance data
+  DynamicJsonDocument doc(300);
+  doc["type"] = "attendance_record";
+  doc["method"] = method;
+  doc["id"] = id;
+  doc["deviceId"] = deviceId;
+  doc["timestamp"] = millis();
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  // Send via WebSocket if connected
+  if (isWebSocketConnected) {
+    if (webSocket.sendTXT(jsonString)) {
+      displayHandler.showSuccess("Attendance Sent");
+      Serial.println("Attendance sent via WebSocket");
     } else {
-      displayHandler.showError("Server Error");
-      sdCardHandler.storeAttendance(id, method);
+      displayHandler.showError("Send Failed");
+      Serial.println("Failed to send via WebSocket");
+      // Fallback to HTTP
+      if (isWiFiConnected) {
+        if (wifiHandler.sendData("/api/attendance/record", jsonString)) {
+          displayHandler.showSuccess("Attendance Recorded");
+        } else {
+          displayHandler.showError("Server Error");
+          sdCardHandler.storeAttendance(id, method);
+        }
+      } else {
+        sdCardHandler.storeAttendance(id, method);
+        displayHandler.showSuccess("Stored Offline");
+      }
     }
   } else {
-    sdCardHandler.storeAttendance(id, method);
-    displayHandler.showSuccess("Stored Offline");
+    // Fallback to HTTP
+    if (isWiFiConnected) {
+      if (wifiHandler.sendData("/api/attendance/record", jsonString)) {
+        displayHandler.showSuccess("Attendance Recorded");
+      } else {
+        displayHandler.showError("Server Error");
+        sdCardHandler.storeAttendance(id, method);
+      }
+    } else {
+      sdCardHandler.storeAttendance(id, method);
+      displayHandler.showSuccess("Stored Offline");
+    }
   }
 }
 
