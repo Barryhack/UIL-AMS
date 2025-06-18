@@ -1,0 +1,58 @@
+{
+  "esp32_endpoints": {
+    "scan_fingerprint": {
+      "method": "POST",
+      "url": "http://[ESP32_IP]/scan-fingerprint",
+      "description": "Start fingerprint scanning mode"
+    },
+    "scan_rfid": {
+      "method": "POST",
+      "url": "http://[ESP32_IP]/scan-rfid",
+      "description": "Start RFID scanning mode"
+    },
+    "stop_scan": {
+      "method": "POST",
+      "url": "http://[ESP32_IP]/stop-scan",
+      "description": "Stop current scanning operation"
+    },
+    "status": {
+      "method": "GET",
+      "url": "http://[ESP32_IP]/status",
+      "description": "Get system status and health info"
+    },
+    "enroll": {
+      "method": "POST",
+      "url": "http://[ESP32_IP]/enroll",
+      "body": {
+        "userId": "string",
+        "method": "fingerprint|rfid",
+        "data": "string"
+      },
+      "description": "Enroll new user data"
+    }
+  },
+  "web_app_endpoints": {
+    "attendance": {
+      "method": "POST",
+      "url": "[YOUR_SERVER]/api/attendance",
+      "body": {
+        "userId": "string",
+        "timestamp": "string",
+        "method": "fingerprint|rfid",
+        "deviceId": "string"
+      },
+      "description": "Receive attendance records from ESP32"
+    },
+    "scan_result": {
+      "method": "POST",
+      "url": "[YOUR_SERVER]/api/scan-result",
+      "body": {
+        "userId": "string",
+        "method": "fingerprint|rfid",
+        "success": "boolean",
+        "timestamp": "string"
+      },
+      "description": "Receive real-time scan results"
+    }
+  }
+}

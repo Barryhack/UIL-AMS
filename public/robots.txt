@@ -1,0 +1,11 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin and authentication pages
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://unilorin-ams.vercel.app/sitemap.xml 

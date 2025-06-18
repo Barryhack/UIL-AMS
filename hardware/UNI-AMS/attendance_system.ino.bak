@@ -1,0 +1,772 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ArduinoJson.h>
+#include <SPI.h>
+#include <SD.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <MFRC522.h>
+#include <Adafruit_Fingerprint.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+
+// Pin Definitions
+#define FINGERPRINT_RX 16  // Corrected from TX2
+#define FINGERPRINT_TX 17  // Corrected from TX2
+#define OLED_SDA 21
+#define OLED_SCL 22
+#define BUZZER_PIN 32
+#define SD_CS 33
+#define SD_MOSI 27
+#define SD_MISO 26  // Corrected from 27
+#define SD_SCK 25
+#define RFID_SS 5
+#define RFID_RST 4
+#define RFID_MOSI 23
+#define RFID_MISO 19
+#define RFID_SCK 18
+
+// Display settings
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+
+// WiFi credentials
+const char* ssid = "Galaxy S20 FE 35AF";
+const char* password = "ollk2898";
+
+// Web server settings
+const char* serverURL = "http://your-web-app.com/api"; // Replace with your web app URL
+const int serverPort = 80;
+
+// Global objects
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+MFRC522 rfid(RFID_SS, RFID_RST);
+HardwareSerial fingerprintSerial(2);
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fingerprintSerial);
+WebServer server(80);
+File dataFile;
+
+// System variables
+bool isOnline = false;
+bool scanningMode = false;
+String currentCommand = "";
+int failedFingerprintAttempts = 0;
+unsigned long lastSyncTime = 0;
+const unsigned long syncInterval = 30000; // Sync every 30 seconds
+
+// Data structures
+struct AttendanceRecord {
+  String userId;
+  String timestamp;
+  String method; // "fingerprint" or "rfid"
+  bool synced;
+};
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize pins
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  
+  // Initialize I2C for OLED
+  Wire.begin(OLED_SDA, OLED_SCL);
+  
+  // Initialize display
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+  display.clearDisplay();
+  displayMessage("Initializing...", "Please wait");
+  
+  // Initialize SD card
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  if (!SD.begin(SD_CS)) {
+    Serial.println("SD Card initialization failed!");
+    displayMessage("Error", "SD Card failed");
+    delay(2000);
+  } else {
+    Serial.println("SD Card initialized successfully");
+    createDataFileIfNotExists();
+  }
+  
+  // Initialize RFID
+  SPI.begin(RFID_SCK, RFID_MISO, RFID_MOSI, RFID_SS);
+  rfid.PCD_Init();
+  Serial.println("RFID initialized");
+  
+  // Initialize fingerprint sensor
+  fingerprintSerial.begin(57600, SERIAL_8N1, FINGERPRINT_RX, FINGERPRINT_TX);
+  if (finger.verifyPassword()) {
+    Serial.println("Fingerprint sensor found!");
+  } else {
+    Serial.println("Fingerprint sensor not found");
+    displayMessage("Error", "Fingerprint sensor");
+    delay(2000);
+  }
+  
+  // Connect to WiFi
+  connectToWiFi();
+  
+  // Setup web server routes
+  setupWebServer();
+  
+  displayMessage("System Ready", "Waiting for scan");
+  playStartupBeep();
+}
+
+void loop() {
+  server.handleClient();
+  
+  // Check WiFi connection
+  checkWiFiConnection();
+  
+  // Sync data if online and interval passed
+  if (isOnline && (millis() - lastSyncTime > syncInterval)) {
+    syncOfflineData();
+    lastSyncTime = millis();
+  }
+  
+  // Handle scanning commands
+  if (scanningMode) {
+    handleScanningEnhanced();
+  }
+  
+  delay(100);
+}
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  displayMessage("Connecting WiFi", ssid);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    isOnline = true;
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    displayMessage("WiFi Connected", WiFi.localIP().toString());
+    playBeep(3, 200);
+  } else {
+    isOnline = false;
+    Serial.println("\nWiFi connection failed - running offline");
+    displayMessage("Offline Mode", "No WiFi connection");
+    playBeep(1, 1000);
+  }
+  delay(2000);
+}
+
+void checkWiFiConnection() {
+  static unsigned long lastCheck = 0;
+  if (millis() - lastCheck > 10000) { // Check every 10 seconds
+    bool wasOnline = isOnline;
+    isOnline = (WiFi.status() == WL_CONNECTED);
+    
+    if (!wasOnline && isOnline) {
+      Serial.println("Internet connection restored");
+      displayMessage("Online", "Connection restored");
+      playBeep(2, 200);
+      syncOfflineData();
+    } else if (wasOnline && !isOnline) {
+      Serial.println("Internet connection lost");
+      displayMessage("Offline Mode", "Connection lost");
+      playBeep(1, 500);
+    }
+    lastCheck = millis();
+  }
+}
+
+void setupWebServer() {
+  // Handle scan fingerprint command
+  server.on("/scan-fingerprint", HTTP_POST, []() {
+    currentCommand = "fingerprint";
+    scanningMode = true;
+    failedFingerprintAttempts = 0;
+    displayMessage("Scan Fingerprint", "Place finger on sensor");
+    server.send(200, "application/json", "{\"status\":\"scanning\",\"method\":\"fingerprint\"}");
+  });
+  
+  // Handle scan RFID command
+  server.on("/scan-rfid", HTTP_POST, []() {
+    currentCommand = "rfid";
+    scanningMode = true;
+    displayMessage("Scan RFID", "Present card to reader");
+    server.send(200, "application/json", "{\"status\":\"scanning\",\"method\":\"rfid\"}");
+  });
+  
+  // Handle stop scanning command
+  server.on("/stop-scan", HTTP_POST, []() {
+    scanningMode = false;
+    currentCommand = "";
+    displayMessage("System Ready", "Waiting for scan");
+    server.send(200, "application/json", "{\"status\":\"stopped\"}");
+  });
+  
+  // Get system status
+  server.on("/status", HTTP_GET, []() {
+    DynamicJsonDocument doc(1024);
+    doc["online"] = isOnline;
+    doc["scanning"] = scanningMode;
+    doc["method"] = currentCommand;
+    doc["wifi_strength"] = WiFi.RSSI();
+    doc["free_heap"] = ESP.getFreeHeap();
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+  });
+  
+  // Handle enrollment data
+  server.on("/enroll", HTTP_POST, []() {
+    if (server.hasArg("plain")) {
+      DynamicJsonDocument doc(1024);
+      deserializeJson(doc, server.arg("plain"));
+      
+      String userId = doc["userId"];
+      String method = doc["method"];
+      String data = doc["data"];
+      
+      // Store enrollment data
+      storeEnrollmentData(userId, method, data);
+      
+      server.send(200, "application/json", "{\"status\":\"enrolled\"}");
+    } else {
+      server.send(400, "application/json", "{\"error\":\"No data provided\"}");
+    }
+  });
+  
+  server.begin();
+  Serial.println("Web server started");
+}
+
+void handleScanningEnhanced() {
+  static unsigned long scanStartTime = 0;
+  static int scanProgress = 0;
+  
+  if (currentCommand == "fingerprint") {
+    // Show scanning progress
+    if (scanStartTime == 0) {
+      scanStartTime = millis();
+      playScanningBeep();
+    }
+    
+    // Update progress
+    unsigned long elapsed = millis() - scanStartTime;
+    scanProgress = min(95, (int)(elapsed / 50)); // Max 95% until actual scan
+    
+    displayScanProgress("fingerprint", scanProgress);
+    
+    int result = scanFingerprint();
+    if (result > 0) {
+      // Fingerprint found
+      String userId = String(result);
+      recordAttendance(userId, "fingerprint");
+      scanningMode = false;
+      currentCommand = "";
+      scanStartTime = 0;
+      
+      displaySuccess(userId, "fingerprint");
+      playSuccessBeep();
+      sendScanResult(userId, "fingerprint", true);
+      
+      // Show success for 3 seconds
+      delay(3000);
+      displayMessage("System Ready", "Waiting for scan");
+      
+    } else if (result == -1) {
+      // Fingerprint scan failed
+      failedFingerprintAttempts++;
+      scanStartTime = 0;
+      
+      if (failedFingerprintAttempts >= 2) {
+        // Show countdown before switching to RFID
+        displayError("Fingerprint Failed", "Switching to RFID...");
+        playWarningBeep();
+        
+        for (int i = 3; i > 0; i--) {
+          displayCountdown(i);
+          playModeSwitch();
+          delay(1000);
+        }
+        
+        // Switch to RFID mode
+        currentCommand = "rfid";
+        displayScanProgress("rfid", 0);
+        playScanningBeep();
+      } else {
+        displayError("Try Again", "Fingerprint not found");
+        playErrorBeep();
+        delay(2000);
+        displayScanProgress("fingerprint", 0);
+        scanStartTime = millis(); // Reset scan timer
+      }
+    }
+    
+    // Timeout after 10 seconds
+    if (elapsed > 10000) {
+      displayError("Timeout", "Please try again");
+      playErrorBeep();
+      scanningMode = false;
+      currentCommand = "";
+      scanStartTime = 0;
+      delay(2000);
+      displayMessage("System Ready", "Waiting for scan");
+    }
+    
+  } else if (currentCommand == "rfid") {
+    // Show RFID scanning progress
+    if (scanStartTime == 0) {
+      scanStartTime = millis();
+      playScanningBeep();
+    }
+    
+    unsigned long elapsed = millis() - scanStartTime;
+    scanProgress = min(95, (int)(elapsed / 100));
+    
+    displayScanProgress("rfid", scanProgress);
+    
+    String cardId = scanRFID();
+    if (cardId != "") {
+      recordAttendance(cardId, "rfid");
+      scanningMode = false;
+      currentCommand = "";
+      scanStartTime = 0;
+      
+      displaySuccess(cardId, "rfid");
+      playSuccessBeep();
+      sendScanResult(cardId, "rfid", true);
+      
+      // Show success for 3 seconds
+      delay(3000);
+      displayMessage("System Ready", "Waiting for scan");
+    }
+    
+    // Timeout after 15 seconds for RFID
+    if (elapsed > 15000) {
+      displayError("Timeout", "No card detected");
+      playErrorBeep();
+      scanningMode = false;
+      currentCommand = "";
+      scanStartTime = 0;
+      delay(2000);
+      displayMessage("System Ready", "Waiting for scan");
+    }
+  }
+}
+
+int scanFingerprint() {
+  uint8_t p = finger.getImage();
+  if (p != FINGERPRINT_OK) return 0;
+  
+  p = finger.image2Tz();
+  if (p != FINGERPRINT_OK) return -1;
+  
+  p = finger.fingerFastSearch();
+  if (p == FINGERPRINT_OK) {
+    return finger.fingerID;
+  } else {
+    return -1;
+  }
+}
+
+String scanRFID() {
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+    return "";
+  }
+  
+  String cardId = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    cardId += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
+    cardId += String(rfid.uid.uidByte[i], HEX);
+  }
+  cardId.toUpperCase();
+  
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+  
+  return cardId;
+}
+
+void recordAttendance(String userId, String method) {
+  String timestamp = getTimestamp();
+  
+  // Store in SD card
+  storeAttendanceRecord(userId, timestamp, method, false);
+  
+  // Try to send to server if online
+  if (isOnline) {
+    if (sendAttendanceToServer(userId, timestamp, method)) {
+      // Mark as synced in local storage
+      updateSyncStatus(userId, timestamp, true);
+    }
+  }
+  
+  Serial.println("Attendance recorded: " + userId + " (" + method + ") at " + timestamp);
+}
+
+void storeAttendanceRecord(String userId, String timestamp, String method, bool synced) {
+  File file = SD.open("/attendance.txt", FILE_APPEND);
+  if (file) {
+    file.println(userId + "," + timestamp + "," + method + "," + (synced ? "1" : "0"));
+    file.close();
+    Serial.println("Record stored to SD card");
+  } else {
+    Serial.println("Error opening attendance file");
+  }
+}
+
+void storeEnrollmentData(String userId, String method, String data) {
+  File file = SD.open("/enrollment.txt", FILE_APPEND);
+  if (file) {
+    file.println(userId + "," + method + "," + data);
+    file.close();
+    Serial.println("Enrollment data stored");
+  }
+}
+
+bool sendAttendanceToServer(String userId, String timestamp, String method) {
+  if (!isOnline) return false;
+  
+  HTTPClient http;
+  http.begin(String(serverURL) + "/attendance");
+  http.addHeader("Content-Type", "application/json");
+  
+  DynamicJsonDocument doc(512);
+  doc["userId"] = userId;
+  doc["timestamp"] = timestamp;
+  doc["method"] = method;
+  doc["deviceId"] = WiFi.macAddress();
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  int httpResponseCode = http.POST(jsonString);
+  http.end();
+  
+  return (httpResponseCode == 200);
+}
+
+void sendScanResult(String userId, String method, bool success) {
+  if (!isOnline) return;
+  
+  HTTPClient http;
+  http.begin(String(serverURL) + "/scan-result");
+  http.addHeader("Content-Type", "application/json");
+  
+  DynamicJsonDocument doc(512);
+  doc["userId"] = userId;
+  doc["method"] = method;
+  doc["success"] = success;
+  doc["timestamp"] = getTimestamp();
+  
+  String jsonString;
+  serializeJson(doc, jsonString);
+  
+  http.POST(jsonString);
+  http.end();
+}
+
+void syncOfflineData() {
+  File file = SD.open("/attendance.txt");
+  if (!file) return;
+  
+  String line;
+  while (file.available()) {
+    line = file.readStringUntil('\n');
+    line.trim();
+    
+    if (line.length() > 0) {
+      int firstComma = line.indexOf(',');
+      int secondComma = line.indexOf(',', firstComma + 1);
+      int thirdComma = line.indexOf(',', secondComma + 1);
+      
+      if (firstComma > 0 && secondComma > 0 && thirdComma > 0) {
+        String userId = line.substring(0, firstComma);
+        String timestamp = line.substring(firstComma + 1, secondComma);
+        String method = line.substring(secondComma + 1, thirdComma);
+        String syncedStr = line.substring(thirdComma + 1);
+        
+        if (syncedStr == "0") { // Not synced yet
+          if (sendAttendanceToServer(userId, timestamp, method)) {
+            updateSyncStatus(userId, timestamp, true);
+            Serial.println("Synced record: " + userId);
+          }
+        }
+      }
+    }
+  }
+  file.close();
+}
+
+void updateSyncStatus(String userId, String timestamp, bool synced) {
+  // This is a simplified version - in production, you'd want to update the specific record
+  // For now, we'll just log that it should be updated
+  Serial.println("Should update sync status for: " + userId + " at " + timestamp);
+}
+
+String getTimestamp() {
+  if (isOnline) {
+    // Get time from NTP server
+    configTime(0, 0, "pool.ntp.org");
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      char buffer[64];
+      strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &timeinfo);
+      return String(buffer);
+    }
+  }
+  
+  // Fallback to millis-based timestamp
+  return String(millis());
+}
+
+void createDataFileIfNotExists() {
+  if (!SD.exists("/attendance.txt")) {
+    File file = SD.open("/attendance.txt", FILE_WRITE);
+    if (file) {
+      file.println("# Attendance Records: UserID,Timestamp,Method,Synced");
+      file.close();
+    }
+  }
+  
+  if (!SD.exists("/enrollment.txt")) {
+    File file = SD.open("/enrollment.txt", FILE_WRITE);
+    if (file) {
+      file.println("# Enrollment Data: UserID,Method,Data");
+      file.close();
+    }
+  }
+}
+
+void displayMessage(String title, String message) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Title
+  display.setCursor(0, 0);
+  display.println(title);
+  
+  // Separator line
+  display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
+  
+  // Message
+  display.setCursor(0, 20);
+  display.println(message);
+  
+  // Status indicators
+  display.setCursor(0, 50);
+  display.print("WiFi: ");
+  display.print(isOnline ? "ON" : "OFF");
+  
+  display.setCursor(60, 50);
+  display.print("Scan: ");
+  display.print(scanningMode ? "ON" : "OFF");
+  
+  display.display();
+}
+
+void displayScanProgress(String method, int progress) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Title
+  display.setCursor(0, 0);
+  display.println("SCANNING");
+  
+  // Method
+  display.setTextSize(1);
+  display.setCursor(0, 20);
+  method.toUpperCase();
+  display.print("Method: ");
+  display.println(method);
+  
+  // Progress bar
+  int barWidth = 100;
+  int barHeight = 8;
+  int barX = 14;
+  int barY = 35;
+  
+  display.drawRect(barX, barY, barWidth, barHeight, SSD1306_WHITE);
+  int fillWidth = (progress * barWidth) / 100;
+  display.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2, SSD1306_WHITE);
+  
+  // Progress percentage
+  display.setCursor(barX + barWidth + 5, barY);
+  display.print(progress);
+  display.print("%");
+  
+  // Instructions
+  display.setCursor(0, 50);
+  if (method == "fingerprint") {
+    display.print("Place finger firmly");
+  } else if (method == "rfid") {
+    display.print("Hold card steady");
+  }
+  
+  display.display();
+}
+
+void displayCountdown(int seconds) {
+  display.clearDisplay();
+  display.setTextSize(3);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Center the countdown number
+  display.setCursor(55, 20);
+  display.println(seconds);
+  
+  display.setTextSize(1);
+  display.setCursor(30, 50);
+  display.print("Switching to RFID");
+  
+  display.display();
+}
+
+void displayError(String errorType, String details) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Error icon (simple X)
+  display.drawLine(10, 10, 20, 20, SSD1306_WHITE);
+  display.drawLine(20, 10, 10, 20, SSD1306_WHITE);
+  
+  // Error title
+  display.setCursor(25, 10);
+  display.println("ERROR");
+  
+  // Error type
+  display.setCursor(0, 25);
+  display.println(errorType);
+  
+  // Details
+  display.setCursor(0, 40);
+  display.println(details);
+  
+  // Status
+  display.setCursor(0, 55);
+  display.print("WiFi: ");
+  display.print(isOnline ? "ON" : "OFF");
+  
+  display.display();
+}
+
+void displaySuccess(String userId, String method) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Success checkmark
+  display.drawLine(10, 15, 15, 20, SSD1306_WHITE);
+  display.drawLine(15, 20, 25, 10, SSD1306_WHITE);
+  
+  // Success title
+  display.setCursor(30, 10);
+  display.println("ACCESS GRANTED");
+  
+  // User info
+  display.setCursor(0, 25);
+  display.print("User: ");
+  display.println(userId);
+  
+  method.toUpperCase();
+  display.println(method);
+  
+  // Timestamp
+  display.setCursor(0, 45);
+  display.print("Time: ");
+  display.println(getTimeString());
+  
+  display.display();
+}
+
+String getTimeString() {
+  if (isOnline) {
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo)) {
+      char buffer[16];
+      strftime(buffer, sizeof(buffer), "%H:%M:%S", &timeinfo);
+      return String(buffer);
+    }
+  }
+  return String(millis() / 1000) + "s";
+}
+
+// Enhanced buzzer patterns
+void playSuccessBeep() {
+  // Two quick high beeps
+  for (int i = 0; i < 2; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(150);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(100);
+  }
+}
+
+void playErrorBeep() {
+  // One long low beep
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(800);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+void playWarningBeep() {
+  // Three medium beeps
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(300);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(200);
+  }
+}
+
+void playStartupBeep() {
+  // Ascending tone pattern
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(100 + (i * 50));
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(50);
+  }
+}
+
+void playScanningBeep() {
+  // Quick double beep
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(50);
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+void playModeSwitch() {
+  // Alternating beeps
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(150);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(150);
+  }
+}
+
+void playBeep(int count, int duration) {
+  for (int i = 0; i < count; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(duration);
+    digitalWrite(BUZZER_PIN, LOW);
+    if (i < count - 1) delay(100);
+  }
+}

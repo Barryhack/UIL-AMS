@@ -1,0 +1,30 @@
+// Required Libraries for Arduino IDE
+// Install these libraries through the Arduino IDE Library Manager:
+
+/*
+1. WiFi - ESP32 WiFi library (built-in)
+2. WebServer - ESP32 WebServer library (built-in)
+3. ArduinoJson - by Benoit Blanchon
+4. SD - SD card library (built-in)
+5. SPI - SPI communication library (built-in)
+6. Wire - I2C communication library (built-in)
+7. Adafruit GFX Library - by Adafruit
+8. Adafruit SSD1306 - by Adafruit (for OLED display)
+9. MFRC522 - by GithubCommunity (for RFID)
+10. Adafruit Fingerprint Sensor Library - by Adafruit
+11. HTTPClient - ESP32 HTTP client library (built-in)
+12. WiFiClientSecure - ESP32 secure WiFi client (built-in)
+*/
+
+// Pin Configuration Notes:
+/*
+CORRECTED PIN ASSIGNMENTS:
+- Fingerprint Module: RX=16, TX=17 (using Serial2)
+- SD Card MISO: Changed from D27 to D26 (D27 was used for MOSI)
+- All other pins remain as specified
+
+WIRING VERIFICATION NEEDED:
+- Double-check that MISO and MOSI pins don't conflict
+- Ensure power supply can handle all modules
+- Verify 3.3V/5V requirements for each module
+*/

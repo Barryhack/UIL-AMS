@@ -1,0 +1,516 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ArduinoJson.h>
+#include <SPI.h>
+#include <SD.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <MFRC522.h>
+#include <Adafruit_Fingerprint.h>
+
+// Pin Definitions
+#define FINGERPRINT_RX 16
+#define FINGERPRINT_TX 17
+#define OLED_SDA 21
+#define OLED_SCL 22
+#define BUZZER_PIN 32
+#define SD_CS 33
+#define SD_MOSI 27
+#define SD_MISO 26
+#define SD_SCK 25
+#define RFID_SS 5
+#define RFID_RST 4
+#define RFID_MOSI 23
+#define RFID_MISO 19
+#define RFID_SCK 18
+
+// Display settings
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+
+// WiFi credentials
+const char* ssid = "Galaxy S20 FE 35AF";
+const char* password = "ollk2898";
+
+// Global objects
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+MFRC522 rfid(RFID_SS, RFID_RST);
+HardwareSerial fingerprintSerial(2);
+Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fingerprintSerial);
+WebServer server(80);
+
+// System variables
+bool isOnline = false;
+bool scanningMode = false;
+String currentCommand = "";
+int failedFingerprintAttempts = 0;
+
+// System states
+enum SystemState {
+  SYSTEM_READY,
+  SYSTEM_SCANNING_FINGERPRINT,
+  SYSTEM_SCANNING_RFID,
+  SYSTEM_PROCESSING
+};
+
+SystemState currentState = SYSTEM_READY;
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting ESP32 Attendance System...");
+  
+  // Initialize pins
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  
+  // Initialize I2C for OLED
+  Wire.begin(OLED_SDA, OLED_SCL);
+  
+  // Initialize display
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+  display.clearDisplay();
+  showMessage("Initializing...", "Please wait");
+  
+  // Initialize SD card
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+  if (!SD.begin(SD_CS)) {
+    Serial.println("SD Card initialization failed!");
+    showMessage("Error", "SD Card failed");
+    delay(2000);
+  } else {
+    Serial.println("SD Card initialized successfully");
+  }
+  
+  // Initialize RFID
+  SPI.begin(RFID_SCK, RFID_MISO, RFID_MOSI, RFID_SS);
+  rfid.PCD_Init();
+  Serial.println("RFID initialized");
+  
+  // Initialize fingerprint sensor
+  fingerprintSerial.begin(57600, SERIAL_8N1, FINGERPRINT_RX, FINGERPRINT_TX);
+  if (finger.verifyPassword()) {
+    Serial.println("Fingerprint sensor found!");
+  } else {
+    Serial.println("Fingerprint sensor not found");
+    showMessage("Error", "Fingerprint sensor");
+    delay(2000);
+  }
+  
+  // Connect to WiFi
+  connectToWiFi();
+  
+  // Setup web server
+  setupWebServer();
+  
+  showMessage("System Ready", "Waiting for scan");
+  playBeep(2, 200); // Ready beep
+  
+  Serial.println("System initialization complete!");
+}
+
+void loop() {
+  server.handleClient();
+  
+  // Handle scanning
+  if (scanningMode) {
+    handleScanning();
+  }
+  
+  delay(100);
+}
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  showMessage("Connecting WiFi", ssid);
+  
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    isOnline = true;
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    showMessage("WiFi Connected", WiFi.localIP().toString());
+    playBeep(3, 200);
+  } else {
+    isOnline = false;
+    Serial.println("\nWiFi connection failed - running offline");
+    showMessage("Offline Mode", "No WiFi connection");
+    playBeep(1, 1000);
+  }
+  delay(2000);
+}
+
+void setupWebServer() {
+  // Handle scan fingerprint command
+  server.on("/scan-fingerprint", HTTP_POST, []() {
+    currentCommand = "fingerprint";
+    scanningMode = true;
+    failedFingerprintAttempts = 0;
+    showMessage("Scan Fingerprint", "Place finger on sensor");
+    server.send(200, "application/json", "{\"status\":\"scanning\",\"method\":\"fingerprint\"}");
+  });
+  
+  // Handle scan RFID command
+  server.on("/scan-rfid", HTTP_POST, []() {
+    currentCommand = "rfid";
+    scanningMode = true;
+    showMessage("Scan RFID", "Present card to reader");
+    server.send(200, "application/json", "{\"status\":\"scanning\",\"method\":\"rfid\"}");
+  });
+  
+  // Handle stop scanning command
+  server.on("/stop-scan", HTTP_POST, []() {
+    scanningMode = false;
+    currentCommand = "";
+    showMessage("System Ready", "Waiting for scan");
+    server.send(200, "application/json", "{\"status\":\"stopped\"}");
+  });
+  
+  // Get system status
+  server.on("/status", HTTP_GET, []() {
+    String response = "{";
+    response += "\"online\":" + String(isOnline ? "true" : "false") + ",";
+    response += "\"scanning\":" + String(scanningMode ? "true" : "false") + ",";
+    response += "\"method\":\"" + currentCommand + "\",";
+    response += "\"wifi_strength\":" + String(WiFi.RSSI()) + ",";
+    response += "\"free_heap\":" + String(ESP.getFreeHeap());
+    response += "}";
+    
+    server.send(200, "application/json", response);
+  });
+  
+  // Root page
+  server.on("/", HTTP_GET, []() {
+    String html = "<!DOCTYPE html>";
+    html += "<html>";
+    html += "<head>";
+    html += "<title>ESP32 Attendance System</title>";
+    html += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+    html += "<style>";
+    html += "body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }";
+    html += ".container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }";
+    html += ".button { background-color: #4CAF50; color: white; padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 5px; font-size: 16px; }";
+    html += ".button:hover { background-color: #45a049; }";
+    html += ".button:disabled { background-color: #cccccc; cursor: not-allowed; }";
+    html += ".status { background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #2196F3; }";
+    html += ".error { background-color: #ffebee; border-left-color: #f44336; }";
+    html += ".success { background-color: #e8f5e8; border-left-color: #4caf50; }";
+    html += ".warning { background-color: #fff3e0; border-left-color: #ff9800; }";
+    html += "h1 { color: #333; text-align: center; }";
+    html += "h2 { color: #666; border-bottom: 2px solid #eee; padding-bottom: 10px; }";
+    html += ".status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }";
+    html += ".status-item { background: #f8f9fa; padding: 10px; border-radius: 5px; text-align: center; }";
+    html += "</style>";
+    html += "</head>";
+    html += "<body>";
+    html += "<div class=\"container\">";
+    html += "<h1>ESP32 Attendance System</h1>";
+    
+    html += "<div id=\"status\" class=\"status\">";
+    html += "<strong>System Status:</strong> Loading...";
+    html += "</div>";
+    
+    html += "<div class=\"status-grid\">";
+    html += "<div class=\"status-item\">";
+    html += "<strong>WiFi</strong><br>";
+    html += "<span id=\"wifi-status\">Checking...</span>";
+    html += "</div>";
+    html += "<div class=\"status-item\">";
+    html += "<strong>Memory</strong><br>";
+    html += "<span id=\"memory-status\">Checking...</span>";
+    html += "</div>";
+    html += "</div>";
+    
+    html += "<h2>Scan Operations</h2>";
+    html += "<div style=\"text-align: center;\">";
+    html += "<button class=\"button\" onclick=\"scanFingerprint()\" id=\"fingerprint-btn\">Scan Fingerprint</button>";
+    html += "<button class=\"button\" onclick=\"scanRFID()\" id=\"rfid-btn\">Scan RFID Card</button>";
+    html += "<button class=\"button\" onclick=\"stopScan()\" id=\"stop-btn\" style=\"background-color: #f44336;\">Stop Scan</button>";
+    html += "</div>";
+    
+    html += "<h2>System Control</h2>";
+    html += "<div style=\"text-align: center;\">";
+    html += "<button class=\"button\" onclick=\"getStatus()\" style=\"background-color: #2196F3;\">Refresh Status</button>";
+    html += "</div>";
+    
+    html += "<div id=\"result\" class=\"status\" style=\"display: none;\"></div>";
+    html += "</div>";
+
+    html += "<script>";
+    html += "let isScanning = false;";
+    
+    html += "function updateButtonStates() {";
+    html += "document.getElementById('fingerprint-btn').disabled = isScanning;";
+    html += "document.getElementById('rfid-btn').disabled = isScanning;";
+    html += "document.getElementById('stop-btn').disabled = !isScanning;";
+    html += "}";
+    
+    html += "function showResult(message, type) {";
+    html += "const resultDiv = document.getElementById('result');";
+    html += "resultDiv.innerHTML = message;";
+    html += "resultDiv.className = 'status ' + (type || 'status');";
+    html += "resultDiv.style.display = 'block';";
+    html += "setTimeout(() => { resultDiv.style.display = 'none'; }, 5000);";
+    html += "}";
+    
+    html += "function scanFingerprint() {";
+    html += "isScanning = true;";
+    html += "updateButtonStates();";
+    html += "fetch('/scan-fingerprint', {method: 'POST'})";
+    html += ".then(response => response.json())";
+    html += ".then(data => {";
+    html += "showResult('Fingerprint scan started. Please place your finger on the sensor.', 'success');";
+    html += "})";
+    html += ".catch(error => {";
+    html += "showResult('Error starting fingerprint scan: ' + error, 'error');";
+    html += "isScanning = false;";
+    html += "updateButtonStates();";
+    html += "});";
+    html += "}";
+    
+    html += "function scanRFID() {";
+    html += "isScanning = true;";
+    html += "updateButtonStates();";
+    html += "fetch('/scan-rfid', {method: 'POST'})";
+    html += ".then(response => response.json())";
+    html += ".then(data => {";
+    html += "showResult('RFID scan started. Please present your card to the reader.', 'success');";
+    html += "})";
+    html += ".catch(error => {";
+    html += "showResult('Error starting RFID scan: ' + error, 'error');";
+    html += "isScanning = false;";
+    html += "updateButtonStates();";
+    html += "});";
+    html += "}";
+    
+    html += "function stopScan() {";
+    html += "fetch('/stop-scan', {method: 'POST'})";
+    html += ".then(response => response.json())";
+    html += ".then(data => {";
+    html += "showResult('Scan stopped', 'warning');";
+    html += "isScanning = false;";
+    html += "updateButtonStates();";
+    html += "})";
+    html += ".catch(error => {";
+    html += "showResult('Error stopping scan: ' + error, 'error');";
+    html += "});";
+    html += "}";
+    
+    html += "function getStatus() {";
+    html += "fetch('/status')";
+    html += ".then(response => response.json())";
+    html += ".then(data => {";
+    html += "const statusDiv = document.getElementById('status');";
+    html += "const wifiStatus = document.getElementById('wifi-status');";
+    html += "const memoryStatus = document.getElementById('memory-status');";
+    html += "statusDiv.innerHTML = '<strong>System Status:</strong> ' + (data.scanning ? 'Scanning (' + data.method + ')' : 'Ready');";
+    html += "wifiStatus.innerHTML = data.online ? 'Connected<br><small>' + data.wifi_strength + ' dBm</small>' : 'Offline';";
+    html += "memoryStatus.innerHTML = Math.round(data.free_heap / 1024) + ' KB<br><small>Free</small>';";
+    html += "isScanning = data.scanning;";
+    html += "updateButtonStates();";
+    html += "})";
+    html += ".catch(error => {";
+    html += "document.getElementById('status').innerHTML = '<strong>System Status:</strong> Error loading status';";
+    html += "});";
+    html += "}";
+    
+    html += "setInterval(getStatus, 3000);";
+    html += "getStatus();";
+    html += "updateButtonStates();";
+    html += "</script>";
+    html += "</body>";
+    html += "</html>";
+    
+    server.send(200, "text/html", html);
+  });
+  
+  server.begin();
+  Serial.println("Web server started");
+}
+
+void handleScanning() {
+  if (currentCommand == "fingerprint") {
+    int result = scanFingerprint();
+    if (result > 0) {
+      // Fingerprint found
+      String userId = String(result);
+      recordAttendance(userId, "fingerprint");
+      scanningMode = false;
+      currentCommand = "";
+      showSuccess(userId, "fingerprint");
+      playBeep(2, 200);
+    } else if (result == -1) {
+      // Fingerprint scan failed
+      failedFingerprintAttempts++;
+      if (failedFingerprintAttempts >= 2) {
+        // Switch to RFID mode
+        currentCommand = "rfid";
+        showMessage("Scan RFID", "Present card to reader");
+        playBeep(1, 300);
+      } else {
+        showMessage("Try Again", "Fingerprint not recognized");
+        playBeep(1, 200);
+      }
+    }
+  } else if (currentCommand == "rfid") {
+    String cardId = scanRFID();
+    if (cardId != "") {
+      recordAttendance(cardId, "rfid");
+      scanningMode = false;
+      currentCommand = "";
+      showSuccess(cardId, "rfid");
+      playBeep(2, 200);
+    }
+  }
+}
+
+int scanFingerprint() {
+  uint8_t p = finger.getImage();
+  if (p != FINGERPRINT_OK) return 0;
+  
+  p = finger.image2Tz();
+  if (p != FINGERPRINT_OK) return -1;
+  
+  p = finger.fingerFastSearch();
+  if (p == FINGERPRINT_OK) {
+    return finger.fingerID;
+  } else {
+    return -1;
+  }
+}
+
+String scanRFID() {
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+    return "";
+  }
+  
+  String cardId = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    cardId += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
+    cardId += String(rfid.uid.uidByte[i], HEX);
+  }
+  cardId.toUpperCase();
+  
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+  
+  return cardId;
+}
+
+void recordAttendance(String userId, String method) {
+  String timestamp = String(millis());
+  
+  // Store in SD card
+  File file = SD.open("/attendance.txt", FILE_APPEND);
+  if (file) {
+    file.println(userId + "," + timestamp + "," + method + ",0"); // 0 = not synced
+    file.close();
+    Serial.println("Attendance recorded: " + userId + " (" + method + ") at " + timestamp);
+  } else {
+    Serial.println("Error opening attendance file");
+  }
+}
+
+void showMessage(String title, String message) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Title
+  display.setCursor(0, 0);
+  display.println(title);
+  
+  // Separator line
+  display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
+  
+  // Message
+  display.setCursor(0, 20);
+  display.println(message);
+  
+  // Status indicators
+  display.setCursor(0, 50);
+  display.print("WiFi: ");
+  display.print(isOnline ? "ON" : "OFF");
+  
+  display.setCursor(60, 50);
+  display.print("Scan: ");
+  display.print(scanningMode ? "ON" : "OFF");
+  
+  display.display();
+}
+
+void showSuccess(String userId, String method) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  // Success checkmark
+  display.drawLine(10, 15, 15, 20, SSD1306_WHITE);
+  display.drawLine(15, 20, 25, 10, SSD1306_WHITE);
+  
+  // Success title
+  display.setCursor(30, 10);
+  display.println("ACCESS GRANTED");
+  
+  // User info
+  display.setCursor(0, 25);
+  display.print("User: ");
+  display.println(userId);
+  
+  display.setCursor(0, 35);
+  display.print("Method: ");
+  method.toUpperCase();
+  display.println(method);
+  
+  // Timestamp
+  display.setCursor(0, 45);
+  display.print("Time: ");
+  display.println(String(millis() / 1000) + "s");
+  
+  display.display();
+  
+  // Show success for 3 seconds
+  delay(3000);
+  showMessage("System Ready", "Waiting for scan");
+}
+
+void playBeep(int count, int duration) {
+  for (int i = 0; i < count; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(duration);
+    digitalWrite(BUZZER_PIN, LOW);
+    if (i < count - 1) delay(100);
+  }
+}
+
+// Global functions for web server callbacks
+void startFingerprintScan() {
+  currentCommand = "fingerprint";
+  scanningMode = true;
+  failedFingerprintAttempts = 0;
+}
+
+void startRFIDScan() {
+  currentCommand = "rfid";
+  scanningMode = true;
+}
+
+void stopScanning() {
+  scanningMode = false;
+  currentCommand = "";
+}
+
+SystemState getSystemState() {
+  return currentState;
+}
