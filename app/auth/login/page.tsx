@@ -54,7 +54,8 @@ function LoginForm() {
         return
       }
 
-      router.push(callbackUrl.startsWith("http") ? callbackUrl : `http://localhost:3000/admin/dashboard`)
+      // Redirect to dashboard - middleware will handle role-based routing
+      router.push('/dashboard')
       router.refresh()
     } catch (error) {
       console.error("Login error:", error)
