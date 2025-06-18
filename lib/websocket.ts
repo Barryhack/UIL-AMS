@@ -152,6 +152,14 @@ class WebSocketHandler {
     })
   }
 
+  public broadcastToDevices(message: any) {
+    this.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(message))
+      }
+    })
+  }
+
   public getConnectedDevices() {
     return Array.from(this.clients).map(client => ({
       deviceId: client.deviceId,
@@ -161,4 +169,10 @@ class WebSocketHandler {
   }
 }
 
-export default WebSocketHandler 
+export default WebSocketHandler
+
+// Export the broadcastToDevices function for use in API routes
+export const broadcastToDevices = (message: any) => {
+  const handler = WebSocketHandler.getInstance()
+  handler.broadcastToDevices(message)
+} 
