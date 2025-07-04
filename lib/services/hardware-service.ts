@@ -30,7 +30,7 @@ export interface StatusUpdate {
 const USE_BACKEND_WEBSOCKET = true;
 // For browser (frontend), connect to the secure WSS server on port 4010
 // For hardware, connect to the insecure WS server on port 4011
-const BACKEND_WS_URL = `ws://localhost:4011/api/ws`;
+const BACKEND_WS_URL = `wss://websocket-usjg.onrender.com/api/ws`;
 
 class HardwareServiceImpl extends EventEmitter {
   private ws: WebSocket | null = null

@@ -17,7 +17,7 @@ interface UseWebSocketOptions {
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const {
-    url = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000/api/ws',
+    url = process.env.NEXT_PUBLIC_WS_URL || 'wss://websocket-usjg.onrender.com/api/ws',
     onMessage,
     onConnect,
     onDisconnect,
