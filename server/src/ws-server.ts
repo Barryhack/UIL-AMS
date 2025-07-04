@@ -4,7 +4,11 @@ import https from 'https'
 import fs from 'fs'
 
 // Render sets PORT automatically
-const PORT = process.env.PORT || 10000
+const PORT = process.env.PORT;
+if (!PORT) {
+  throw new Error('PORT environment variable is not set!');
+}
+console.log(`[BOOT] Using PORT: ${PORT}`);
 const CERT_PATH = process.env.SSL_CERT_PATH
 const KEY_PATH = process.env.SSL_KEY_PATH
 
