@@ -1,8 +1,7 @@
-import { createServer as createHttpsServer } from 'https';
+import { createServer as createHttpServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { WebSocketServer, WebSocket } from 'ws';
-import fs from 'fs';
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
@@ -11,17 +10,9 @@ const handle = app.getRequestHandler();
 const port = process.env.PORT || 3000;
 const hostname = 'localhost';
 
-// --- SSL Options ---
-// In a real production environment, you would use professionally signed certs.
-// For local dev, we use the self-signed ones we just generated.
-const sslOptions = {
-  key: fs.readFileSync('key.pem'),
-  cert: fs.readFileSync('cert.pem'),
-};
-
 app.prepare().then(() => {
-  // --- HTTPS Server for the Next.js App and WebSocket (Single Port) ---
-  const httpsServer = createHttpsServer(sslOptions, (req, res) => {
+  // --- HTTP Server for the Next.js App and WebSocket (Single Port) ---
+  const httpServer = createHttpServer((req, res) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
   });
@@ -29,17 +20,17 @@ app.prepare().then(() => {
   const deviceClients = new Map();
   const webClients = new Set();
 
-  // --- WSS (Secure) WebSocket Server for Web App and Hardware (Same Port) ---
-  const wss = new WebSocketServer({ server: httpsServer, path: '/api/ws' });
+  // --- WebSocket Server for Web App and Hardware (Same Port) ---
+  const wss = new WebSocketServer({ server: httpServer, path: '/api/ws' });
 
   wss.on('connection', (ws, req) => {
     // Determine if this is a hardware or web client by URL param
-    const url = new URL(req.url, `https://${req.headers.host}`);
+    const url = new URL(req.url, `http://${req.headers.host}`);
     const deviceId = url.searchParams.get('deviceId');
     if (deviceId) {
       // Hardware client
       deviceClients.set(deviceId, ws);
-      console.log(`Hardware device connected: ${deviceId} (wss)`);
+      console.log(`Hardware device connected: ${deviceId} (ws)`);
       ws.send(JSON.stringify({ type: 'welcome', message: `Connected to UNILORIN AMS WebSocket server (device: ${deviceId})` }));
       ws.on('message', (message) => {
         console.log(`Message from hardware ${deviceId}: ${message}`);
@@ -51,12 +42,12 @@ app.prepare().then(() => {
       });
       ws.on('close', () => {
         deviceClients.delete(deviceId);
-        console.log(`Hardware device disconnected: ${deviceId} (wss)`);
+        console.log(`Hardware device disconnected: ${deviceId} (ws)`);
       });
     } else {
       // Web client
       webClients.add(ws);
-      console.log('Web client connected (wss)');
+      console.log('Web client connected (ws)');
       ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to UNILORIN AMS WebSocket server (web)' }));
       ws.on('message', (message) => {
         try {
@@ -81,14 +72,14 @@ app.prepare().then(() => {
       });
       ws.on('close', () => {
         webClients.delete(ws);
-        console.log('Web client disconnected (wss)');
+        console.log('Web client disconnected (ws)');
       });
     }
   });
 
-  httpsServer.listen(port, '0.0.0.0', (err) => {
+  httpServer.listen(port, '0.0.0.0', (err) => {
     if (err) throw err;
-    console.log(`> Ready on https://0.0.0.0:${port}`);
-    console.log(`> WebSocket Server (WSS) ready on wss://0.0.0.0:${port}/api/ws`);
+    console.log(`> Ready on http://0.0.0.0:${port}`);
+    console.log(`> WebSocket Server (WS) ready on ws://0.0.0.0:${port}/api/ws`);
   });
 }); 
