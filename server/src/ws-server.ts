@@ -86,19 +86,25 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
   return wss
 }
 
+// --- Add this HTTP handler for health checks ---
+function createHealthCheckHandler() {
+  return (req: http.IncomingMessage, res: http.ServerResponse) => {
+    if (req.url === '/' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('OK');
+    }
+  };
+}
+
 // Start server (WSS if certs, else WS)
 if (sslOptions) {
-  const httpsServer = https.createServer(sslOptions)
+  const httpsServer = https.createServer(sslOptions, createHealthCheckHandler())
   setupWSServer(httpsServer, true)
   httpsServer.listen(PORT, () => {
     console.log(`Secure WebSocket Server (WSS) ready on wss://0.0.0.0:${PORT}/api/ws`)
   })
 } else {
-  const httpServer = http.createServer()
+  const httpServer = http.createServer(createHealthCheckHandler())
   setupWSServer(httpServer, false)
   httpServer.listen(PORT, () => {
-    console.log(`Insecure WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`)
-  })
-}
-
-// For Render: expose only one port per service. Deploy separate services for WSS and WS if needed. 
+    console.log(`
