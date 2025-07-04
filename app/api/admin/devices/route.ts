@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json()
-    const { name, location, type, ipAddress, macAddress, serialNumber } = data
+    const { name, location, type, ipAddress, macAddress, serialNumber, deviceId } = data
 
     // Create location first
     const newLocation = await prisma.location.create({
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
         serialNumber,
         status: "ACTIVE",
         mode: "ONLINE",
+        deviceId,
         location: {
           connect: {
             id: newLocation.id
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
     // If network fields are provided, update them
     if (ipAddress || macAddress) {
       await prisma.$executeRaw`
-        UPDATE devices 
+        UPDATE "Device" 
         SET ip_address = ${ipAddress || null}, 
             mac_address = ${macAddress || null}
         WHERE id = ${device.id}
@@ -72,6 +73,7 @@ export async function GET(req: Request) {
     const devices = await prisma.device.findMany({
       include: {
         location: true,
+        assignedCourses: true,
         _count: {
           select: {
             attendanceRecords: true

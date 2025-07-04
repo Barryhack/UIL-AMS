@@ -1,4 +1,5 @@
 import type React from "react"
+import { cn } from "@/lib/utils"
 
 interface BadgeProps {
   variant?: "primary" | "success" | "warning" | "danger"
@@ -6,15 +7,17 @@ interface BadgeProps {
   children: React.ReactNode
 }
 
-export function Badge({ variant = "primary", className, children }: BadgeProps) {
-  const variantClasses = {
-    primary: "badge-primary",
-    success: "badge-success",
-    warning: "badge-warning",
-    danger: "badge-danger",
-  }
+const badgeVariants = {
+  primary: "badge-primary",
+  success: "badge-success",
+  warning: "badge-warning",
+  danger: "badge-danger",
+}
 
-  const classes = ["badge", variantClasses[variant], className].filter(Boolean).join(" ")
+export function Badge({ variant = "primary", className, children }: BadgeProps) {
+  const classes = cn("badge", badgeVariants[variant], className)
 
   return <span className={classes}>{children}</span>
 }
+
+export { badgeVariants }

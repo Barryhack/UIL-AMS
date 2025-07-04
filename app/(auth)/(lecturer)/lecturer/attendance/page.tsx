@@ -88,6 +88,21 @@ export default async function AttendancePage() {
     }
   })
 
+  // Convert Date objects to ISO strings for frontend compatibility
+  const sessionsWithStringDates = sessions.map(session => ({
+    ...session,
+    startTime: session.startTime.toISOString(),
+    endTime: session.endTime.toISOString(),
+    records: session.records.map(record => ({
+      ...record,
+      timestamp: record.timestamp.toISOString(),
+      student: {
+        ...record.student,
+        matricNumber: record.student.matricNumber || ""
+      }
+    }))
+  }))
+
   return (
     <div className="space-y-8">
       <div>
@@ -97,7 +112,7 @@ export default async function AttendancePage() {
 
       <SessionManagement courses={courses} />
       
-      <SessionList initialSessions={sessions} />
+      <SessionList initialSessions={sessionsWithStringDates} />
     </div>
   )
 } 

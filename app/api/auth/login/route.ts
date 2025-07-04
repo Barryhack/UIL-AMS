@@ -1,32 +1,12 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import * as jose from 'jose'
+import prisma from "@/lib/prisma"
+import bcrypt from "bcryptjs"
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "your-secret-key"
 )
-
-// Default users for testing
-const users = [
-  {
-    email: "admin@unilorin.edu.ng",
-    password: "admin123",
-    role: "ADMIN",
-    name: "Admin User"
-  },
-  {
-    email: "lecturer@unilorin.edu.ng",
-    password: "lecturer123",
-    role: "LECTURER",
-    name: "Lecturer User"
-  },
-  {
-    email: "student@unilorin.edu.ng",
-    password: "student123",
-    role: "STUDENT",
-    name: "Student User"
-  }
-]
 
 export async function POST(request: Request) {
   try {
@@ -35,10 +15,10 @@ export async function POST(request: Request) {
     const { email, password } = body
     console.log('Login attempt for email:', email)
 
-    // Find user with matching credentials
-    const user = users.find(
-      (u) => u.email === email && u.password === password
-    )
+    // Find user in the database by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    })
 
     if (!user) {
       console.log('Invalid credentials for email:', email)
@@ -48,7 +28,15 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('User found:', { email: user.email, role: user.role })
+    // Compare password (matric number) using bcryptjs
+    const passwordMatch = await bcrypt.compare(password, user.password)
+    if (!passwordMatch) {
+      console.log('Invalid password for email:', email)
+      return NextResponse.json(
+        { message: "Invalid email or password" },
+        { status: 401 }
+      )
+    }
 
     // Generate JWT token using jose
     const token = await new jose.SignJWT({ 

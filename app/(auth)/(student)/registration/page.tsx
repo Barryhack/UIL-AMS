@@ -8,8 +8,8 @@ interface Course {
   id: string
   code: string
   title: string
-  creditHours: number
-  capacity: number
+  units: number
+  maxCapacity: number
   enrollments: { id: string }[]
   lecturer: {
     name: string
@@ -30,16 +30,15 @@ export default async function RegistrationPage() {
   // Get all available courses and current student's enrollments
   const courses = await prisma.course.findMany({
     where: {
-      semester: "CURRENT", // Assuming you have a semester field
-      isActive: true
+      semester: "CURRENT" // Assuming you have a semester field
     },
     include: {
       lecturer: true,
       enrollments: true
     }
-  }) as Course[]
+  })
 
-  const studentEnrollments = await prisma.enrollment.findMany({
+  const studentEnrollments = await prisma.courseEnrollment.findMany({
     where: {
       studentId: session.user.id
     },
@@ -60,7 +59,7 @@ export default async function RegistrationPage() {
       <div className="grid gap-4">
         {courses.map((course) => {
           const isEnrolled = enrolledCourseIds.has(course.id)
-          const isFull = course.enrollments.length >= course.capacity
+          const isFull = course.enrollments.length >= course.maxCapacity
 
           return (
             <Card key={course.id} className="p-6">
@@ -69,26 +68,26 @@ export default async function RegistrationPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold">{course.code}</h3>
                     <span className="text-sm text-muted-foreground">
-                      ({course.creditHours} Units)
+                      ({course.units} Units)
                     </span>
                   </div>
                   <p className="text-muted-foreground">{course.title}</p>
                   <p className="text-sm">Lecturer: {course.lecturer.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {course.enrollments.length} / {course.capacity} students enrolled
+                    {course.enrollments.length} / {course.maxCapacity} students enrolled
                   </p>
                 </div>
                 <form action={async () => {
                   'use server'
                   if (isEnrolled) {
-                    await prisma.enrollment.deleteMany({
+                    await prisma.courseEnrollment.deleteMany({
                       where: {
                         studentId: session.user.id,
                         courseId: course.id
                       }
                     })
                   } else {
-                    await prisma.enrollment.create({
+                    await prisma.courseEnrollment.create({
                       data: {
                         studentId: session.user.id,
                         courseId: course.id

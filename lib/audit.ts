@@ -4,6 +4,7 @@ interface AuditLogData {
   action: string
   details: string
   userId?: string
+  entity: string
 }
 
 export async function createAuditLog(data: AuditLogData) {
@@ -13,7 +14,7 @@ export async function createAuditLog(data: AuditLogData) {
         action: data.action,
         details: data.details,
         userId: data.userId,
-        timestamp: new Date(),
+        entity: data.entity,
       },
     })
   } catch (error) {
@@ -24,16 +25,12 @@ export async function createAuditLog(data: AuditLogData) {
 
 export async function getAuditLogs(limit = 100, offset = 0, userId?: string) {
   try {
-    const query = `
-      SELECT * FROM "AuditLog"
-      ${userId ? "WHERE userId = $3" : ""}
-      ORDER BY createdAt DESC
-      LIMIT $1 OFFSET $2
-    `
-
-    const params = userId ? [limit, offset, userId] : [limit, offset]
-    const logs = await sql(query, params)
-
+    const logs = await prisma.auditLog.findMany({
+      where: userId ? { userId } : undefined,
+      orderBy: { createdAt: "desc" },
+      skip: offset,
+      take: limit,
+    })
     return { success: true, logs }
   } catch (error) {
     console.error("Error fetching audit logs:", error)

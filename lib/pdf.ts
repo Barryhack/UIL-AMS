@@ -102,7 +102,7 @@ export async function generateCoursePDF(course: CourseWithDetails, stats: Course
         const y = startY + (index * 20)
         doc.text(new Date(record.date).toLocaleDateString(), startX, y)
         doc.text(record.student.name, startX + columnWidth, y)
-        doc.text(record.student.matricNumber, startX + columnWidth * 2, y)
+        doc.text(record.student.matricNumber ?? "N/A", startX + columnWidth * 2, y)
         doc.text(record.status, startX + columnWidth * 3, y)
 
         // Draw line between rows

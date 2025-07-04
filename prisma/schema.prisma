@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,52 +8,67 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  password      String
-  role          String    @default("STUDENT")
-  matricNumber  String?   @unique
-  staffId       String?   @unique
-  faculty       String?
-  department    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  emailVerified DateTime?
-  image         String?
-  biometricData BiometricData?
-  rfidTag       RFIDTag?
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  password            String
+  role                String               @default("STUDENT")
+  matricNumber        String?              @unique
+  staffId             String?              @unique
+  faculty             String?
+  department          String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  emailVerified       DateTime?
+  image               String?
+  deviceId            String?
+  fingerprintId       String?
+  registrationStatus  String?              @default("PENDING")
+  rfidUid             String?              @unique
+  departmentId        String?
+  facultyId           String?
+  userAttendances     Attendance[]         @relation("UserAttendance")
+  attendances         Attendance[]         @relation("StudentAttendance")
+  attendanceRecords   AttendanceRecord[]
+  auditLogs           AuditLog[]
+  biometricData       BiometricData?
+  courses             Course[]             @relation("LecturerCourses")
+  enrollments         CourseEnrollment[]
+  deviceRegistrations DeviceRegistration[]
+  deviceVerifications DeviceVerification[]
+  justifications      Justification[]
+  notifications       Notification[]
+  rfidTag             RFIDTag?
 
-  // Relations
-  courses       Course[]  @relation("LecturerCourses")
-  enrollments   CourseEnrollment[]
-  attendances   Attendance[]
-  attendanceRecords AttendanceRecord[]
+  @@index([deviceId])
 }
 
 model Course {
-  id            String    @id @default(cuid())
-  code          String    @unique
-  title         String
-  description   String
-  units         Int       @default(3)
-  level         String
-  semester      String
-  academicYear  String
-  faculty       String
-  department    String
-  maxCapacity   Int       @default(60)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  lecturer      User      @relation("LecturerCourses", fields: [lecturerId], references: [id])
-  lecturerId    String
-  enrollments   CourseEnrollment[]
-  attendances   Attendance[]
-  schedules     Schedule[]
-  devices       CourseDevice[]
-  sessions      AttendanceSession[]
+  id           String              @id @default(cuid())
+  code         String              @unique
+  title        String
+  description  String
+  units        Int                 @default(3)
+  creditHours  Int                 @default(3)
+  capacity     Int                 @default(60)
+  level        String
+  semester     String
+  academicYear String
+  faculty      String
+  department   String
+  venue        String?
+  maxCapacity  Int                 @default(60)
+  isActive     Boolean             @default(true)
+  isArchived   Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  lecturerId   String
+  attendances  Attendance[]
+  sessions     AttendanceSession[]
+  lecturer     User                @relation("LecturerCourses", fields: [lecturerId], references: [id])
+  devices      CourseDevice[]
+  enrollments  CourseEnrollment[]
+  schedules    Schedule[]
 
   @@index([code])
   @@index([faculty, department])
@@ -64,12 +76,12 @@ model Course {
 
 model CourseEnrollment {
   id        String   @id @default(cuid())
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId  String
-  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId String
   status    String   @default("PENDING")
   createdAt DateTime @default(now())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, studentId])
   @@index([courseId])
@@ -77,71 +89,80 @@ model CourseEnrollment {
 }
 
 model Attendance {
-  id            String    @id @default(cuid())
-  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
   courseId      String
-  student       User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentId     String
+  userId        String?
   date          DateTime
-  status        String    @default("ABSENT")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  status        String         @default("ABSENT")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User?          @relation("UserAttendance", fields: [userId], references: [id])
+  student       User           @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   justification Justification?
 
+  @@unique([courseId, studentId, date])
   @@index([courseId])
   @@index([studentId])
   @@index([date])
-  @@unique([courseId, studentId, date])
 }
 
 model Schedule {
-  id        String   @id @default(cuid())
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id        String              @id @default(cuid())
   courseId  String
-  day       String   // Monday, Tuesday, etc.
-  startTime String   // HH:mm format
-  endTime   String   // HH:mm format
+  day       String
+  startTime String
+  endTime   String
   venue     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
   sessions  AttendanceSession[]
+  course    Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([day])
 }
 
 model Device {
-  id                String             @id @default(cuid())
+  id                String              @id @default(cuid())
   name              String
-  serialNumber      String             @unique
-  ipAddress         String?            @map("ip_address")
-  macAddress        String?            @map("mac_address") @unique
-  status            String            @default("ACTIVE") // "ACTIVE", "INACTIVE", "MAINTENANCE"
-  mode              String            @default("ONLINE") // "ONLINE", "OFFLINE"
-  type              String            @default("HYBRID") // "FINGERPRINT", "RFID", "HYBRID"
+  serialNumber      String              @unique
+  ipAddress         String?             @map("ip_address")
+  macAddress        String?             @unique @map("mac_address")
+  status            String              @default("ACTIVE")
+  mode              String              @default("ONLINE")
+  type              String              @default("HYBRID")
   firmwareVersion   String?
   lastSynced        DateTime?
+  lastSync          DateTime?
+  lastSeen          DateTime?
+  lastStatusMessage String?
+  lastTest          DateTime?
+  isOnline          Boolean             @default(false)
   lastMaintenance   DateTime?
-  location          Location           @relation(fields: [locationId], references: [id])
   locationId        String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  deviceId          String              @unique
   attendanceRecords AttendanceRecord[]
-  assignedCourses   CourseDevice[]
   sessions          AttendanceSession[]
-  deviceId          String             @unique // MAC address
-  statuses          DeviceStatus[]
+  assignedCourses   CourseDevice[]
+  location          Location            @relation(fields: [locationId], references: [id])
   commands          DeviceCommand[]
+  statuses          DeviceStatus[]
+
+  @@index([locationId])
 }
 
 model CourseDevice {
   id        String   @id @default(cuid())
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId  String
-  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   deviceId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, deviceId])
   @@index([courseId])
@@ -149,21 +170,24 @@ model CourseDevice {
 }
 
 model AttendanceSession {
-  id            String    @id @default(cuid())
-  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  courseId      String
-  schedule      Schedule? @relation(fields: [scheduleId], references: [id])
-  scheduleId    String?
-  startTime     DateTime
-  endTime       DateTime
-  status        String    @default("SCHEDULED") // "SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"
-  type          String    @default("SCHEDULED") // "SCHEDULED", "MANUAL"
-  location      String?
-  device        Device?   @relation(fields: [deviceId], references: [id])
-  deviceId      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  records       AttendanceRecord[]
+  id                  String             @id @default(cuid())
+  courseId            String
+  scheduleId          String?
+  date                DateTime
+  startTime           DateTime
+  endTime             DateTime
+  status              String             @default("SCHEDULED")
+  type                String             @default("SCHEDULED")
+  location            String?
+  deviceId            String?
+  requiresFingerprint Boolean            @default(false)
+  requiresRFID        Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  records             AttendanceRecord[]
+  device              Device?            @relation(fields: [deviceId], references: [id])
+  schedule            Schedule?          @relation(fields: [scheduleId], references: [id])
+  course              Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([scheduleId])
@@ -172,21 +196,23 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id            String    @id @default(cuid())
-  session       AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionId     String
-  device        Device    @relation(fields: [deviceId], references: [id])
-  deviceId      String
-  student       User      @relation(fields: [studentId], references: [id])
-  studentId     String
-  timestamp     DateTime  @default(now())
-  type          String   // "IN" or "OUT"
-  status        String   @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
-  verificationMethod String // "FINGERPRINT" or "RFID"
-  syncedAt      DateTime?
-  metadata      String?  // JSON string for additional data
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String            @id @default(cuid())
+  sessionId          String
+  deviceId           String
+  studentId          String
+  timestamp          DateTime          @default(now())
+  type               String
+  status             String            @default("PENDING")
+  verificationMethod String
+  syncedAt           DateTime?
+  metadata           String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  userId             String?
+  student            User              @relation(fields: [studentId], references: [id])
+  device             Device            @relation(fields: [deviceId], references: [id])
+  session            AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  justification      Justification?
 
   @@index([sessionId])
   @@index([deviceId])
@@ -199,74 +225,151 @@ model AttendanceRecord {
 model Location {
   id        String   @id @default(cuid())
   name      String
-  devices   Device[]
+  type      String   @default("ROOM")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  devices   Device[]
 }
 
 model Justification {
-  id                String     @id @default(cuid())
-  attendance        Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
-  attendanceId      String     @unique
-  reason            String
+  id                 String            @id @default(cuid())
+  attendanceId       String            @unique
+  recordId           String?           @unique
+  studentId          String?
+  reason             String
   supportingDocument String?
-  status            String     @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
-  comment           String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  status             String            @default("PENDING")
+  comment            String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  student            User?             @relation(fields: [studentId], references: [id])
+  record             AttendanceRecord? @relation(fields: [recordId], references: [id])
+  attendance         Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
 
   @@index([status])
 }
 
 model BiometricData {
-  id            String    @id @default(cuid())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String    @unique
-  templateData  String    // Encrypted fingerprint template
-  templateId    String    // Device-specific template ID
-  status        String    @default("ACTIVE") // "ACTIVE", "INACTIVE"
-  verifiedAt    DateTime?
-  failedScans   Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  templateData String
+  templateId   String
+  status       String    @default("ACTIVE")
+  verifiedAt   DateTime?
+  failedScans  Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
 }
 
 model RFIDTag {
-  id            String    @id @default(cuid())
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String    @unique
-  tagId         String    @unique
-  isActive      Boolean   @default(true)
-  lastUsed      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  tagId     String    @unique
+  isActive  Boolean   @default(true)
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tagId])
 }
 
 model DeviceStatus {
-  id          String   @id @default(cuid())
-  deviceId    String
-  device      Device   @relation(fields: [deviceId], references: [deviceId])
-  status      String
-  message     String?
-  timestamp   DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  deviceId  String
+  status    String
+  message   String?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [deviceId])
 }
 
 model DeviceCommand {
   id          String    @id @default(cuid())
   deviceId    String
-  device      Device    @relation(fields: [deviceId], references: [deviceId])
   type        String
-  parameters  String?   // JSON string
-  status      String    @default("pending") // pending, sent, completed, failed
+  parameters  String?
+  status      String    @default("pending")
   createdAt   DateTime  @default(now())
   sentAt      DateTime?
   completedAt DateTime?
-  result      String?   // JSON string
-} 
+  result      String?
+  device      Device    @relation(fields: [deviceId], references: [deviceId])
+}
+
+model DeviceRegistration {
+  id        String   @id @default(cuid())
+  deviceId  String   @unique
+  userId    String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([deviceId])
+  @@index([userId])
+}
+
+model DeviceVerification {
+  id        String   @id @default(cuid())
+  deviceId  String
+  userId    String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([deviceId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entity     String
+  resourceId String?
+  details    String?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String    @default("INFO")
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}

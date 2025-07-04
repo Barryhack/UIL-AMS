@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+
+        function log(message) {
+            console.log(message);
+            messagesDiv.innerHTML += '<div>' + message + '</div>';
+        }
+
+        // Test different WebSocket URLs
+        const urls = [
+            'ws://127.0.0.1:4010/api/ws',
+            'ws://localhost:4010/api/ws',
+            'ws://192.168.60.118:4010/api/ws'
+        ];
+
+        let currentUrlIndex = 0;
+
+        function testConnection() {
+            if (currentUrlIndex >= urls.length) {
+                log('All connection attempts failed');
+                return;
+            }
+
+            const url = urls[currentUrlIndex];
+            log('Testing connection to: ' + url);
+            statusDiv.textContent = 'Testing: ' + url;
+
+            const ws = new WebSocket(url);
+
+            ws.onopen = function() {
+                log('SUCCESS: Connected to ' + url);
+                statusDiv.textContent = 'Connected to: ' + url;
+                ws.close();
+            };
+
+            ws.onerror = function(error) {
+                log('ERROR: Failed to connect to ' + url + ' - ' + error);
+                currentUrlIndex++;
+                setTimeout(testConnection, 1000);
+            };
+
+            ws.onclose = function() {
+                log('Connection closed for ' + url);
+            };
+
+            // Timeout after 3 seconds
+            setTimeout(() => {
+                if (ws.readyState === WebSocket.CONNECTING) {
+                    log('TIMEOUT: Connection to ' + url + ' timed out');
+                    ws.close();
+                    currentUrlIndex++;
+                    setTimeout(testConnection, 1000);
+                }
+            }, 3000);
+        }
+
+        // Start testing
+        testConnection();
+    </script>
+</body>
+</html> 

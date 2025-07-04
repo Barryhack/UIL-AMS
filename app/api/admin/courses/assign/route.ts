@@ -84,6 +84,15 @@ export async function POST(req: Request) {
         },
       })
 
+      await prisma.auditLog.create({
+        data: {
+          action: "COURSE_ASSIGNED",
+          details: `Course ${course.title} assigned to lecturer ${lecturer.name}`,
+          userId: authSession.user.id,
+          entity: "Course",
+        },
+      });
+
       return NextResponse.json({ 
         success: true,
         course: updatedCourse

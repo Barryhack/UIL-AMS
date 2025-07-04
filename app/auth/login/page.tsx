@@ -55,8 +55,7 @@ function LoginForm() {
       }
 
       // Redirect to dashboard - middleware will handle role-based routing
-      router.push('/dashboard')
-      router.refresh()
+      router.push('/')
     } catch (error) {
       console.error("Login error:", error)
       setError("An error occurred. Please try again.")
@@ -65,12 +64,12 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <BackgroundGrid />
       
       <div className="absolute inset-0 flex items-center justify-center -z-10">
         <div className="absolute inset-0 bg-white/40 backdrop-blur-3xl" />
-        <div className="w-full max-w-6xl h-full max-h-[80vh] bg-blue-50/50 rounded-[40px] shadow-2xl shadow-blue-500/10" />
+        <div className="w-full max-w-6xl h-full max-h-[90vh] bg-blue-50/50 rounded-[40px] shadow-2xl shadow-blue-500/10" />
       </div>
       
       <motion.div 
@@ -79,30 +78,27 @@ function LoginForm() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-[400px] p-4 relative"
       >
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="relative w-[100px] h-[100px] mx-auto mb-6"
+            className="relative w-[80px] h-[80px] mx-auto mb-4"
           >
-            <div className="relative w-[100px] h-[100px] bg-white/50 rounded-lg p-2">
+            <div className="relative w-full h-full bg-white/50 rounded-lg p-2">
               {!imageError ? (
                 <Image
                   src="/images/unilorin-logo.png"
                   alt="University of Ilorin"
-                  width={100}
-                  height={100}
+                  width={80}
+                  height={80}
                   priority
                   className="w-full h-full object-contain"
-                  onError={() => {
-                    console.error("Image load error")
-                    setImageError(true)
-                  }}
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-blue-50 rounded-full">
-                  <span className="text-2xl font-bold text-blue-500">UNIAMS</span>
+                  <span className="text-xl font-bold text-blue-500">UNIAMS</span>
                 </div>
               )}
             </div>
@@ -136,34 +132,27 @@ function LoginForm() {
             <form onSubmit={handleSubmit}>
               <CardContent className="space-y-4">
                 {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <Alert variant="warning" className="text-sm bg-red-50 text-red-600 border-red-200">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  </motion.div>
+                  <Alert variant="danger" className="bg-red-50 text-red-600 border-red-200">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
                 )}
                 
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                     Email address
                   </Label>
-                  <div className="relative group">
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="name@unilorin.edu.ng"
-                      required
-                      disabled={isLoading}
-                      className="w-full pl-4 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 group-hover:border-gray-300"
-                      autoComplete="email"
-                      autoFocus
-                    />
-                  </div>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="name@unilorin.edu.ng"
+                    required
+                    disabled={isLoading}
+                    autoComplete="email"
+                    autoFocus
+                    className="w-full pl-4 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -173,31 +162,27 @@ function LoginForm() {
                     </Label>
                     <Link 
                       href="/auth/forgot-password"
-                      className="text-sm text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                      className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
                     >
                       Forgot password?
                     </Link>
                   </div>
-                  <div className="relative group">
+                  <div className="relative">
                     <Input
                       id="password"
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
                       disabled={isLoading}
-                      className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 group-hover:border-gray-300"
                       autoComplete="current-password"
+                      className="w-full pl-4 pr-10 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -218,7 +203,7 @@ function LoginForm() {
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   {isLoading ? (
                     <>
@@ -241,8 +226,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen w-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-blue-600"></div>
       </div>
     }>
       <LoginForm />

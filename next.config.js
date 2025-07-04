@@ -42,7 +42,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; connect-src 'self' ws: wss: http: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; upgrade-insecure-requests;"
+            value: "default-src 'self'; connect-src 'self' ws://192.168.60.118:4000 ws://192.168.60.118:4010 ws: wss: http: https:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; upgrade-insecure-requests;"
           }
         ],
       },

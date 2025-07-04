@@ -17,6 +17,7 @@ export const userRegistrationSchema = z.object({
   rfidData: z.string({
     required_error: "RFID card scan is required",
   }),
+  deviceId: z.string().min(1, "Device selection is required"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],

@@ -101,6 +101,15 @@ export async function POST(
       lastSync: updatedDevice.lastSync,
     })
 
+    await prisma.auditLog.create({
+      data: {
+        action: "DEVICE_SYNCED",
+        details: `Device ${device.name} synced`,
+        userId: authSession.user.id,
+        entity: "Device",
+      },
+    });
+
     return NextResponse.json(updatedDevice)
   } catch (error) {
     console.error("Error in POST /api/admin/devices/[deviceId]/sync:", error)

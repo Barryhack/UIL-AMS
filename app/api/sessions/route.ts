@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 import { z } from "zod"
+import WebSocketHandler from '@/lib/websocket'
 
 const sessionSchema = z.object({
   courseId: z.string(),
@@ -43,6 +44,20 @@ export async function POST(req: Request) {
         endTime: validatedData.endTime,
         venue: validatedData.venue,
       },
+    })
+
+    // Relay command to hardware via backend WebSocket server
+    const wsHandler = WebSocketHandler.getInstance()
+    wsHandler.broadcastToDevices({
+      type: 'device_command',
+      command: 'start_attendance_session',
+      data: {
+        courseId: validatedData.courseId,
+        scheduleId: schedule.id,
+        startTime: validatedData.startTime,
+        endTime: validatedData.endTime,
+        venue: validatedData.venue,
+      }
     })
 
     return NextResponse.json(schedule)

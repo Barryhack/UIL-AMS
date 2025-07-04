@@ -16,9 +16,9 @@ export async function apiFetch<T = any>(url: string, options: FetchOptions = { a
 
   // Add auth token if required and available
   if (auth) {
-    const token = getAuthToken()
+    const token = await getAuthToken()
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`
     }
   }
 

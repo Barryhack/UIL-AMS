@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import prisma from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import * as z from "zod"
@@ -96,6 +96,15 @@ export async function POST(request: Request) {
       },
     })
 
+    await prisma.auditLog.create({
+      data: {
+        action: "DEVICE_CREATED",
+        details: `Device ${device.name} created`,
+        userId: session.user.id,
+        entity: "Device",
+      },
+    });
+
     return NextResponse.json(device)
   } catch (error) {
     console.error("Error creating device:", error)
@@ -146,7 +155,6 @@ export async function PATCH(
         entityId: device.id,
         userId: session.user.id,
         details: `Updated device status to ${status}`,
-        severity: "INFO",
       },
     })
 

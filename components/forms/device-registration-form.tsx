@@ -36,6 +36,7 @@ export function DeviceRegistrationForm({ open, onClose }: DeviceRegistrationForm
     status: "active",
     ipAddress: "",
     macAddress: "",
+    deviceId: "",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +54,7 @@ export function DeviceRegistrationForm({ open, onClose }: DeviceRegistrationForm
         serialNumber: formData.serialNumber,
         location: formData.location || "Main Lab",
         status: formData.status.toUpperCase(),
+        deviceId: formData.deviceId,
         peripherals: {
           rfid: formData.type === 'rfid' || formData.type === 'hybrid',
           biometric: formData.type === 'fingerprint' || formData.type === 'hybrid',
@@ -166,9 +168,26 @@ export function DeviceRegistrationForm({ open, onClose }: DeviceRegistrationForm
                   placeholder="e.g. 00:1A:2B:3C:4D:5E"
                   required
                   value={formData.macAddress}
-                  onChange={(e) => setFormData(prev => ({ ...prev, macAddress: e.target.value }))}
+                  onChange={(e) => {
+                    const mac = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      macAddress: mac,
+                      deviceId: mac
+                    }));
+                  }}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-device-id">Device ID</Label>
+              <Input
+                id="register-device-id"
+                placeholder="e.g. 5C:01:3B:4D:F8:08"
+                required
+                value={formData.deviceId}
+                onChange={(e) => setFormData(prev => ({ ...prev, deviceId: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="register-device-status">Initial Status</Label>

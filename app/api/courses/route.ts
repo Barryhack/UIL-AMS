@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 import { z } from "zod"
@@ -66,6 +66,15 @@ export async function POST(req: Request) {
           },
         },
       })
+
+      await prisma.auditLog.create({
+        data: {
+          action: "COURSE_CREATED",
+          details: `Course ${course.title} created`,
+          userId: session.user.id,
+          entity: "Course",
+        },
+      });
 
       return NextResponse.json({ course })
     } catch (validationError) {

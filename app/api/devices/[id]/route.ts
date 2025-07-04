@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import prisma from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
@@ -74,11 +74,9 @@ export async function PATCH(
     await prisma.auditLog.create({
       data: {
         action: "DEVICE_UPDATED",
-        entity: "Device",
-        entityId: device.id,
+        entity: device.id,
         userId: session.user.id,
         details: `Updated device ${device.name}`,
-        severity: "INFO",
       },
     })
 
@@ -118,6 +116,13 @@ export async function DELETE(
       return NextResponse.json({ message: "Device not found" }, { status: 404 })
     }
 
+    // Manually delete all related records before deleting the device
+    await prisma.attendanceRecord.deleteMany({ where: { deviceId: params.id } })
+    await prisma.deviceCommand.deleteMany({ where: { deviceId: device.deviceId } })
+    await prisma.deviceStatus.deleteMany({ where: { deviceId: device.deviceId } })
+    await prisma.courseDevice.deleteMany({ where: { deviceId: params.id } })
+    // Add more deletions here if you have other relations
+
     // Delete the device
     await prisma.device.delete({
       where: { id: params.id },
@@ -127,11 +132,9 @@ export async function DELETE(
     await prisma.auditLog.create({
       data: {
         action: "DEVICE_DELETED",
-        entity: "Device",
-        entityId: params.id,
+        entity: params.id,
         userId: session.user.id,
         details: `Deleted device ${device.name}`,
-        severity: "WARNING",
       },
     })
 

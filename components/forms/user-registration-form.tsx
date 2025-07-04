@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -24,33 +24,9 @@ import {
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Fingerprint, CreditCard, Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Stepper } from "@/components/ui/stepper"
 import { faculties } from "@/lib/constants/faculties"
 import { userRegistrationSchema, type UserRegistrationData } from "@/lib/schemas/user"
-import { hardwareService } from "@/lib/services/hardware-service"
 import { HardwareScanner } from "./HardwareScanner"
-
-type ScanMode = 'rfid' | 'fingerprint' | 'enroll' | null;
-type HardwareScannerMode = 'SCAN' | 'ENROLL';
-
-const steps = [
-  {
-    title: "Personal Info",
-    description: "Basic information",
-  },
-  {
-    title: "Academic Info",
-    description: "Faculty & Department",
-  },
-  {
-    title: "Biometric",
-    description: "Fingerprint scan",
-  },
-  {
-    title: "RFID",
-    description: "Card scan",
-  },
-]
 
 interface UserRegistrationFormProps {
   open: boolean
@@ -58,12 +34,17 @@ interface UserRegistrationFormProps {
 }
 
 export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProps) {
-  const [step, setStep] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [scanMode, setScanMode] = useState<'SCAN' | 'ENROLL' | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [biometricData, setBiometricData] = useState<string | null>(null)
+  const [rfidData, setRfidData] = useState<string | null>(null)
   const [selectedFaculty, setSelectedFaculty] = useState<string>("")
-  const [isScanning, setIsScanning] = useState(false)
-  const [scanError, setScanError] = useState<string | null>(null)
-  const [scanMode, setScanMode] = useState<ScanMode>(null)
-  const [userId, setUserId] = useState<number | undefined>(undefined)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [registrationStep, setRegistrationStep] = useState(1) // 1: basic info, 2: biometric
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null)
+  const [devices, setDevices] = useState<any[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
 
   const form = useForm<UserRegistrationData>({
     resolver: zodResolver(userRegistrationSchema),
@@ -74,238 +55,132 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = form
 
-  const onSubmit = async (data: UserRegistrationData) => {
+  useEffect(() => {
+    if (!open) return;
+    
+    setCreatedUserId(null);
+    setRegistrationStep(1);
+    setBiometricData(null);
+    setRfidData(null);
+    setSelectedFaculty("");
+    setSelectedDepartment("");
+    
+    setDevicesLoading(true);
+    fetch("/api/admin/devices", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        setDevices(Array.isArray(data) ? data : [])
+        setDevicesLoading(false)
+      })
+      .catch(() => setDevicesLoading(false))
+  }, [open])
+
+  const handleFacultyChange = (facultyId: string) => {
+    setSelectedFaculty(facultyId)
+    setSelectedDepartment("")
+    setValue("department", "")
+  }
+
+  const handleBasicInfoSubmit = async (data: UserRegistrationData) => {
+    setIsLoading(true);
     try {
-      if (!data.biometricData || !data.rfidData) {
-        toast.error("Both fingerprint and RFID card scans are required")
-        return
+      const email = data.email;
+      const matricNumber = data.matricNumber || "";
+      
+      if (!email.endsWith("@students.unilorin.edu.ng") && !email.endsWith("@staff.unilorin.edu.ng")) {
+        throw new Error("Email must be in format: username@students.unilorin.edu.ng or username@staff.unilorin.edu.ng");
       }
       
-      // TODO: Implement API call to save user data
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      toast.success("User registered successfully")
-      onClose()
+      if (!data.deviceId) {
+        throw new Error("Device assignment is required");
+      }
+      if (!selectedDepartment) {
+        throw new Error("Department is required");
+      }
+      
+      const userData = {
+        name: `${data.firstName} ${data.lastName}`,
+        email,
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        matricNumber: data.role === "STUDENT" ? matricNumber : undefined,
+        staffId: data.role === "LECTURER" ? data.staffId : undefined,
+        faculty: selectedFaculty,
+        department: selectedDepartment,
+        role: data.role,
+        deviceId: data.deviceId,
+      };
+      
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to register user");
+      }
+      
+      setCreatedUserId(result.user.id);
+      setRegistrationStep(2);
+      toast.success("Basic info saved. Proceed to scan fingerprint and RFID.");
     } catch (error) {
-      toast.error("Failed to register user. Please try again.")
+      console.error("Registration error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to register user");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleBiometricUpdate = async (updateData: { fingerprintId?: string; rfidUid?: string }) => {
+    if (!createdUserId) {
+      toast.error("No user selected for biometric update.");
+      return;
+    }
+    try {
+      const response = await fetch(`/api/users/${createdUserId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update biometric data.');
+      }
+      toast.success('Biometric data saved successfully!');
+    } catch (error) {
+      console.error('Biometric update error:', error);
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred.');
+    }
+  };
+
+  const handleFingerprintScanned = (data: string) => {
+    setBiometricData(data)
+    setScanMode(null)
+    toast.success("Fingerprint scan completed")
+    handleBiometricUpdate({ fingerprintId: data })
   }
 
   const handleRFIDScanned = (data: string) => {
-    setValue("rfidData", data)
+    setRfidData(data)
+    setScanMode(null)
     toast.success("RFID card scanned successfully")
-    setScanMode(null)
-    if (!watch("biometricData")) {
-      setStep(2)
-    } else {
-      handleSubmit(onSubmit)()
-    }
-  }
-
-  const handleFingerprintScanned = (data: string) => {
-    setValue("biometricData", data)
-    toast.success("Fingerprint captured successfully")
-    setScanMode(null)
-    if (!watch("rfidData")) {
-      setStep(3)
-    } else {
-      handleSubmit(onSubmit)()
-    }
+    handleBiometricUpdate({ rfidUid: data })
   }
 
   const handleFingerprintEnrolled = (data: string) => {
-    setValue("biometricData", data)
-    toast.success("Fingerprint enrolled successfully")
+    setBiometricData(data)
     setScanMode(null)
-    if (!watch("rfidData")) {
-      setStep(3)
-    } else {
-      handleSubmit(onSubmit)()
+    toast.success("Fingerprint enrolled successfully")
+    handleBiometricUpdate({ fingerprintId: data })
+  }
+
+  const onSubmit = async (data: UserRegistrationData) => {
+    if (registrationStep === 1) {
+      await handleBasicInfoSubmit(data);
     }
   }
-
-  const handleBiometricCapture = async () => {
-    try {
-      setIsScanning(true)
-      setScanError(null)
-
-      if (!hardwareService.isConnected()) {
-        throw new Error("Fingerprint scanner is not connected")
-      }
-
-      await hardwareService.scanFingerprint(userId || 0)
-    } catch (error) {
-      console.error("Biometric capture error:", error)
-      setScanError(error instanceof Error ? error.message : "Failed to capture biometric data")
-      toast.error(error instanceof Error ? error.message : "Failed to capture biometric data")
-    } finally {
-      setIsScanning(false)
-    }
-  }
-
-  const handleRFIDCapture = async () => {
-    try {
-      setIsScanning(true)
-      setScanError(null)
-
-      if (!hardwareService.isConnected()) {
-        throw new Error("RFID reader is not connected")
-      }
-
-      await hardwareService.scanRFID()
-    } catch (error) {
-      console.error("RFID capture error:", error)
-      setScanError(error instanceof Error ? error.message : "Failed to scan RFID card")
-      toast.error(error instanceof Error ? error.message : "Failed to scan RFID card")
-    } finally {
-      setIsScanning(false)
-    }
-  }
-
-  const handleScanComplete = (result: { success: boolean; data?: string; error?: string }) => {
-    // ... rest of the code ...
-  }
-
-  const handleError = (error: Error) => {
-    // ... rest of the code ...
-  }
-
-  const getScannerMode = (mode: ScanMode): HardwareScannerMode => {
-    return mode === 'enroll' ? 'ENROLL' : 'SCAN';
-  };
-
-  // Update the biometric step UI
-  const BiometricStep = (
-    <Card>
-      <CardContent className="pt-6 pb-4">
-        {scanError && (
-          <Alert variant="danger" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{scanError}</AlertDescription>
-          </Alert>
-        )}
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="relative">
-            <Fingerprint className={`h-16 w-16 ${watch("biometricData") ? "text-green-500" : "text-gray-400"}`} />
-            {!watch("biometricData") && (
-              <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">*</div>
-            )}
-          </div>
-          <div className="text-center">
-            <h3 className="text-lg font-medium">Scan Fingerprint</h3>
-            <p className="text-sm text-gray-500">
-              {watch("biometricData") 
-                ? "Fingerprint successfully captured" 
-                : "Place your finger on the scanner when ready"}
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => setScanMode('enroll')}
-            disabled={isScanning}
-            className="w-full"
-          >
-            {isScanning ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Scanning Fingerprint...
-              </>
-            ) : (
-              <>
-                <Fingerprint className="mr-2 h-4 w-4" />
-                {watch("biometricData") ? "Scan Again" : "Scan Fingerprint"}
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-      <CardFooter className="justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setStep(1)}
-        >
-          Previous
-        </Button>
-        <Button
-          type="button"
-          onClick={() => setStep(3)}
-          disabled={!watch("biometricData")}
-        >
-          Next
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-
-  // Update the RFID step UI
-  const RFIDStep = (
-    <Card>
-      <CardContent className="pt-6 pb-4">
-        {scanError && (
-          <Alert variant="danger" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{scanError}</AlertDescription>
-          </Alert>
-        )}
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="relative">
-            <CreditCard className={`h-16 w-16 ${watch("rfidData") ? "text-green-500" : "text-gray-400"}`} />
-            {!watch("rfidData") && (
-              <div className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">*</div>
-            )}
-          </div>
-          <div className="text-center">
-            <h3 className="text-lg font-medium">Scan RFID Card</h3>
-            <p className="text-sm text-gray-500">
-              {watch("rfidData")
-                ? "RFID card successfully scanned"
-                : "Place your RFID card on the reader when ready"}
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => setScanMode('rfid')}
-            disabled={isScanning}
-            className="w-full"
-          >
-            {isScanning ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Scanning Card...
-              </>
-            ) : (
-              <>
-                <CreditCard className="mr-2 h-4 w-4" />
-                {watch("rfidData") ? "Scan Again" : "Scan RFID Card"}
-              </>
-            )}
-          </Button>
-        </div>
-      </CardContent>
-      <CardFooter className="justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setStep(2)}
-        >
-          Previous
-        </Button>
-        <Button
-          type="submit"
-          disabled={!watch("rfidData") || !watch("biometricData") || isSubmitting}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Registering...
-            </>
-          ) : (
-            "Complete Registration"
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
-  )
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -314,322 +189,278 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
           <DialogTitle>Add New User</DialogTitle>
         </DialogHeader>
         
-        <Stepper steps={steps} currentStep={step} className="mb-8" />
+        {registrationStep === 1 ? (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      {...register("firstName")}
+                      className={errors.firstName ? "border-red-500" : ""}
+                    />
+                    {errors.firstName && (
+                      <p className="text-sm text-red-500">{errors.firstName.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      {...register("lastName")}
+                      className={errors.lastName ? "border-red-500" : ""}
+                    />
+                    {errors.lastName && (
+                      <p className="text-sm text-red-500">{errors.lastName.message}</p>
+                    )}
+                  </div>
+                </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <AnimatePresence mode="wait">
-            {step === 0 && (
-              <motion.div
-                key="personal-info"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                <Card>
-                  <CardContent className="space-y-4 pt-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="register-firstName">First Name</Label>
-                        <Input
-                          id="register-firstName"
-                          autoComplete="given-name"
-                          {...register("firstName")}
-                          className={errors.firstName ? "border-red-500" : ""}
-                        />
-                        {errors.firstName && (
-                          <p className="text-sm text-red-500" id="firstName-error">
-                            {errors.firstName.message}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-lastName">Last Name</Label>
-                        <Input
-                          id="register-lastName"
-                          autoComplete="family-name"
-                          {...register("lastName")}
-                          className={errors.lastName ? "border-red-500" : ""}
-                          aria-describedby={errors.lastName ? "lastName-error" : undefined}
-                        />
-                        {errors.lastName && (
-                          <p className="text-sm text-red-500" id="lastName-error">
-                            {errors.lastName.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email")}
+                    className={errors.email ? "border-red-500" : ""}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                  )}
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="register-email">Email</Label>
-                      <Input
-                        id="register-email"
-                        type="email"
-                        autoComplete="email"
-                        placeholder="user@unilorin.edu.ng"
-                        {...register("email")}
-                        className={errors.email ? "border-red-500" : ""}
-                        aria-describedby={errors.email ? "email-error" : undefined}
-                      />
-                      {errors.email && (
-                        <p className="text-sm text-red-500" id="email-error">
-                          {errors.email.message}
-                        </p>
-                      )}
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      {...register("password")}
+                      className={errors.password ? "border-red-500" : ""}
+                    />
+                    {errors.password && (
+                      <p className="text-sm text-red-500">{errors.password.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      {...register("confirmPassword")}
+                      className={errors.confirmPassword ? "border-red-500" : ""}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
+                    )}
+                  </div>
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="register-password">Password</Label>
-                        <Input
-                          id="register-password"
-                          type="password"
-                          autoComplete="new-password"
-                          {...register("password")}
-                          className={errors.password ? "border-red-500" : ""}
-                          aria-describedby={errors.password ? "password-error" : undefined}
-                        />
-                        {errors.password && (
-                          <p className="text-sm text-red-500" id="password-error">
-                            {errors.password.message}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-confirmPassword">Confirm Password</Label>
-                        <Input
-                          id="register-confirmPassword"
-                          type="password"
-                          autoComplete="new-password"
-                          {...register("confirmPassword")}
-                          className={errors.confirmPassword ? "border-red-500" : ""}
-                          aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
-                        />
-                        {errors.confirmPassword && (
-                          <p className="text-sm text-red-500" id="confirmPassword-error">
-                            {errors.confirmPassword.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select
+                    value={watch("role")}
+                    onValueChange={value => setValue("role", value as "ADMIN" | "LECTURER" | "STUDENT")}
+                  >
+                    <SelectTrigger id="role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STUDENT">Student</SelectItem>
+                      <SelectItem value="LECTURER">Lecturer</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.role && (
+                    <p className="text-sm text-red-500">{errors.role.message}</p>
+                  )}
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="register-role">Role</Label>
-                      <Select
-                        value={watch("role")}
-                        onValueChange={(value: "ADMIN" | "LECTURER" | "STUDENT") => setValue("role", value)}
-                      >
-                        <SelectTrigger id="register-role" aria-label="Select role">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem id="register-role-admin" value="ADMIN">Admin</SelectItem>
-                          <SelectItem id="register-role-lecturer" value="LECTURER">Lecturer</SelectItem>
-                          <SelectItem id="register-role-student" value="STUDENT">Student</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.role && (
-                        <p className="text-sm text-red-500" id="role-error">
-                          {errors.role.message}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="justify-end space-x-2">
-                    <Button
-                      type="button"
-                      onClick={() => setStep(1)}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="faculty">Faculty</Label>
+                    <Select
+                      value={selectedFaculty}
+                      onValueChange={handleFacultyChange}
                     >
-                      Next
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            )}
-
-            {step === 1 && (
-              <motion.div
-                key="academic-info"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                <Card>
-                  <CardContent className="space-y-4 pt-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="register-faculty">Faculty</Label>
-                      <Select
-                        value={selectedFaculty}
-                        onValueChange={(value) => {
-                          setSelectedFaculty(value)
-                          setValue("faculty", value)
-                          setValue("department", "")
-                        }}
-                      >
-                        <SelectTrigger id="register-faculty" aria-label="Select faculty">
-                          <SelectValue placeholder="Select faculty" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {faculties.map((faculty) => (
-                            <SelectItem 
-                              key={faculty.id} 
-                              value={faculty.id}
-                              id={`register-faculty-${faculty.id}`}
-                            >
-                              {faculty.name}
+                      <SelectTrigger id="faculty">
+                        <SelectValue placeholder="Select faculty" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {faculties.map((faculty) => (
+                          <SelectItem key={faculty.id} value={faculty.id}>
+                            {faculty.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Select
+                      value={watch("department") || ""}
+                      onValueChange={value => setValue("department", value)}
+                      disabled={!selectedFaculty}
+                    >
+                      <SelectTrigger id="department">
+                        <SelectValue placeholder={selectedFaculty ? "Select department" : "Select faculty first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedFaculty && faculties
+                          .find(f => f.id === selectedFaculty)
+                          ?.departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
                             </SelectItem>
                           ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.faculty && (
-                        <p className="text-sm text-red-500" id="faculty-error">
-                          {errors.faculty.message}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="register-department">Department</Label>
-                      <Select
-                        value={watch("department")}
-                        onValueChange={(value) => setValue("department", value)}
-                        disabled={!selectedFaculty}
-                      >
-                        <SelectTrigger id="register-department" aria-label="Select department">
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {selectedFaculty && faculties
-                            .find((f) => f.id === selectedFaculty)
-                            ?.departments.map((dept) => (
-                              <SelectItem 
-                                key={dept} 
-                                value={dept}
-                                id={`register-department-${dept.toLowerCase().replace(/\s+/g, '-')}`}
-                              >
-                                {dept}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.department && (
-                        <p className="text-sm text-red-500" id="department-error">
-                          {errors.department.message}
-                        </p>
-                      )}
-                    </div>
-
-                    {watch("role") === "STUDENT" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="register-matricNumber">Matric Number</Label>
-                        <Input
-                          id="register-matricNumber"
-                          autoComplete="off"
-                          {...register("matricNumber")}
-                          className={errors.matricNumber ? "border-red-500" : ""}
-                          aria-describedby={errors.matricNumber ? "matricNumber-error" : undefined}
-                        />
-                        {errors.matricNumber && (
-                          <p className="text-sm text-red-500" id="matricNumber-error">
-                            {errors.matricNumber.message}
-                          </p>
-                        )}
-                      </div>
+                      </SelectContent>
+                    </Select>
+                    {errors.department && (
+                      <p className="text-sm text-red-500">{errors.department.message}</p>
                     )}
+                  </div>
+                </div>
 
-                    {watch("role") === "LECTURER" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="register-staffId">Staff ID</Label>
-                        <Input
-                          id="register-staffId"
-                          autoComplete="off"
-                          {...register("staffId")}
-                          className={errors.staffId ? "border-red-500" : ""}
-                          aria-describedby={errors.staffId ? "staffId-error" : undefined}
-                        />
-                        {errors.staffId && (
-                          <p className="text-sm text-red-500" id="staffId-error">
-                            {errors.staffId.message}
-                          </p>
-                        )}
-                      </div>
+                {watch("role") === "STUDENT" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="matricNumber">Matric Number</Label>
+                    <Input
+                      id="matricNumber"
+                      {...register("matricNumber")}
+                      className={errors.matricNumber ? "border-red-500" : ""}
+                    />
+                    {errors.matricNumber && (
+                      <p className="text-sm text-red-500">{errors.matricNumber.message}</p>
                     )}
-                  </CardContent>
-                  <CardFooter className="justify-between">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setStep(0)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => setStep(2)}
-                    >
-                      Next
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            )}
-
-            {step === 2 && (
-              <motion.div
-                key="biometric"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                {BiometricStep}
-                {scanMode && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-                    <div className="bg-white p-6 rounded-lg w-96 relative z-[10000]">
-                      <h2 className="text-lg font-semibold mb-4">
-                        {scanMode === 'rfid' ? 'Scan RFID Card' :
-                         scanMode === 'fingerprint' ? 'Scan Fingerprint' :
-                         'Enroll Fingerprint'}
-                      </h2>
-                      <HardwareScanner
-                        mode={getScannerMode(scanMode)}
-                        userId={userId}
-                        onRFIDScanned={handleRFIDScanned}
-                        onFingerprintScanned={handleFingerprintScanned}
-                        onFingerprintEnrolled={handleFingerprintEnrolled}
-                      />
-                      <Button
-                        variant="outline"
-                        className="mt-4 w-full"
-                        onClick={() => setScanMode(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
                   </div>
                 )}
-              </motion.div>
-            )}
 
-            {step === 3 && (
-              <motion.div
-                key="rfid"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                {watch("role") === "LECTURER" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="staffId">Staff ID</Label>
+                    <Input
+                      id="staffId"
+                      {...register("staffId")}
+                      className={errors.staffId ? "border-red-500" : ""}
+                    />
+                    {errors.staffId && (
+                      <p className="text-sm text-red-500">{errors.staffId.message}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="deviceId">Assign Device</Label>
+                  <Select
+                    value={watch("deviceId") || ""}
+                    onValueChange={value => setValue("deviceId", value)}
+                    disabled={devicesLoading || devices.length === 0}
+                  >
+                    <SelectTrigger id="deviceId">
+                      <SelectValue placeholder={devicesLoading ? "Loading devices..." : "Select device"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {devices.map(device => (
+                        <SelectItem key={device.id} value={device.id}>
+                          {device.name} ({device.macAddress || device.deviceId || device.serialNumber})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.deviceId && (
+                    <p className="text-sm text-red-500">{errors.deviceId.message}</p>
+                  )}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save & Continue to Biometric"
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          </form>
+        ) : (
+          // Step 2: Biometric Registration
+          <div className="space-y-4">
+            <div className="text-center">
+              <h3 className="text-lg font-medium">Biometric Registration</h3>
+              <p className="text-sm text-gray-500">Please scan the user's fingerprint and RFID card.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCurrentUserId(createdUserId);
+                  setScanMode('ENROLL');
+                }}
+                className="w-full"
               >
-                {RFIDStep}
-              </motion.div>
+                <Fingerprint className="mr-2 h-4 w-4" />
+                {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCurrentUserId(createdUserId);
+                  setScanMode('SCAN');
+                }}
+                className="w-full"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
+              </Button>
+            </div>
+            
+            {(biometricData && rfidData) && (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => {
+                  toast.success("User registration complete!");
+                  onClose();
+                }}
+              >
+                Finish Registration
+              </Button>
             )}
-          </AnimatePresence>
+          </div>
+        )}
 
-          {Object.keys(errors).length > 0 && (
-            <Alert variant="danger" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Please fix the errors above before proceeding.
-              </AlertDescription>
-            </Alert>
-          )}
-        </form>
+        {scanMode && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+            <div className="bg-white p-6 rounded-lg w-96 relative z-[10000]">
+              <h2 className="text-lg font-semibold mb-4">
+                {scanMode === 'SCAN' ? 'Scan RFID Card' : 'Enroll Fingerprint'}
+              </h2>
+              <HardwareScanner
+                mode={scanMode}
+                userId={currentUserId || undefined}
+                onRFIDScanned={handleRFIDScanned}
+                onFingerprintScanned={handleFingerprintScanned}
+                onFingerprintEnrolled={handleFingerprintEnrolled}
+              />
+              <Button
+                variant="outline"
+                className="mt-4 w-full"
+                onClick={() => setScanMode(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

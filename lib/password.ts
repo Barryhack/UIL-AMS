@@ -1,4 +1,4 @@
-import { compare as bcryptCompare, hash as bcryptHash } from "bcrypt"
+import { compare as bcryptCompare, hash as bcryptHash } from "bcryptjs"
 
 const BCRYPT_ROUNDS = 10
 

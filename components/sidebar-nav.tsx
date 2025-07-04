@@ -34,6 +34,7 @@ const adminLinks = [
     items: [
       { href: "/admin/users", label: "Users", icon: Users },
       { href: "/admin/courses", label: "Courses", icon: BookOpen },
+      { href: "/admin/schedule", label: "Schedules", icon: Calendar },
       { href: "/admin/devices", label: "Devices", icon: Fingerprint },
     ],
   },

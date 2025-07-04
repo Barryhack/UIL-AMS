@@ -41,16 +41,26 @@ interface DeviceManagementProps {
     _count: {
       attendanceRecords: number
     }
+    deviceId: string
+    assignedCourses: { courseId: string }[]
   }[]
+}
+
+interface Course {
+  id: string;
+  code: string;
+  title: string;
 }
 
 export function DeviceManagement({ devices: initialDevices }: DeviceManagementProps) {
   const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [deviceList, setDeviceList] = useState(initialDevices)
+  const [courses, setCourses] = useState<Course[]>([])
   const formRef = useRef<HTMLFormElement>(null)
   const [editingDevice, setEditingDevice] = useState<typeof initialDevices[0] | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([])
 
   const fetchDevices = async () => {
     try {
@@ -76,6 +86,28 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
     }
   }
 
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch("/api/courses");
+      if (!response.ok) throw new Error("Failed to fetch courses");
+      setCourses(await response.json());
+    } catch (error) {
+      toast.error("Failed to load courses for assignment.");
+    }
+  };
+
+  useEffect(() => {
+    if (showEditModal) {
+      fetchCourses();
+    }
+  }, [showEditModal]);
+
+  useEffect(() => {
+    if (editingDevice) {
+      setSelectedCourses(editingDevice.assignedCourses.map(c => c.courseId));
+    }
+  }, [editingDevice]);
+
   // Only fetch devices when session is authenticated
   useEffect(() => {
     if (status === "authenticated") {
@@ -95,7 +127,8 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
         type: formData.get("type"),
         ipAddress: formData.get("ipAddress"),
         macAddress: formData.get("macAddress"),
-        serialNumber: formData.get("serialNumber") || `DEV-${Date.now()}`
+        serialNumber: formData.get("serialNumber") || `DEV-${Date.now()}`,
+        deviceId: formData.get("deviceId") || formData.get("macAddress"),
       }
 
       const response = await fetch("/api/admin/devices", {
@@ -131,7 +164,7 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/devices/${deviceId}/`, {
+      const response = await fetch(`/api/admin/devices/${deviceId}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json"
@@ -168,10 +201,13 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
         type: formData.get("type"),
         status: formData.get("status"),
         ipAddress: formData.get("ipAddress"),
-        macAddress: formData.get("macAddress")
+        macAddress: formData.get("macAddress"),
+        courseIds: selectedCourses,
       }
 
-      const response = await fetch(`/api/admin/devices/${editingDevice.id}/`, {
+      const apiUrl = `/api/admin/devices/${editingDevice.id}/`;
+      console.log("API URL being used:", apiUrl);
+      const response = await fetch(apiUrl, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json"
@@ -293,6 +329,22 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
                 <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
                 <Input id="serialNumber" name="serialNumber" placeholder="e.g. ESP32-001" />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="deviceId">Device ID</Label>
+                <Input 
+                  id="deviceId" 
+                  name="deviceId" 
+                  placeholder="e.g. 5C:01:3B:4D:F8:08" 
+                  required 
+                  onInput={e => {
+                    // Optionally auto-fill with MAC address if empty
+                    const macInput = (e.target as HTMLInputElement).form?.elements.namedItem('macAddress') as HTMLInputElement;
+                    if (macInput && !e.currentTarget.value) {
+                      e.currentTarget.value = macInput.value;
+                    }
+                  }}
+                />
+              </div>
             </div>
 
             <Button type="submit" disabled={isLoading}>
@@ -314,6 +366,7 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Device ID</TableHead>
                 <TableHead>Serial Number</TableHead>
                 <TableHead>IP Address</TableHead>
                 <TableHead>MAC Address</TableHead>
@@ -328,6 +381,7 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
               {deviceList.map((device) => (
                 <TableRow key={device.id}>
                   <TableCell>{device.name}</TableCell>
+                  <TableCell>{device.deviceId}</TableCell>
                   <TableCell>{device.serialNumber}</TableCell>
                   <TableCell>{device.ipAddress}</TableCell>
                   <TableCell>{device.macAddress}</TableCell>
@@ -422,104 +476,100 @@ export function DeviceManagement({ devices: initialDevices }: DeviceManagementPr
         </CardContent>
       </Card>
 
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Device</DialogTitle>
-            <DialogDescription>
-              Update device information.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditDevice} className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Device Name</Label>
-                <Input 
-                  id="edit-name" 
-                  name="name" 
-                  defaultValue={editingDevice?.name}
-                  required 
-                />
+      {showEditModal && editingDevice && (
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogContent className="sm:max-w-lg w-full h-[100vh] max-h-[100vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Edit Device: {editingDevice?.name}</DialogTitle>
+              <DialogDescription>
+                Update device details and course assignments.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditDevice} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-scroll pr-2 space-y-4" style={{ scrollbarGutter: 'stable' }}>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Device Name</Label>
+                  <Input id="edit-name" name="name" defaultValue={editingDevice.name} required autoComplete="device-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input id="edit-location" name="location" defaultValue={editingDevice.location.name} required autoComplete="organization" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Device Type</Label>
+                  <Select name="type" defaultValue={editingDevice.type} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FINGERPRINT">Biometric Scanner</SelectItem>
+                      <SelectItem value="RFID">RFID Reader</SelectItem>
+                      <SelectItem value="HYBRID">Hybrid Device</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select name="status" defaultValue={editingDevice.status} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="INACTIVE">Inactive</SelectItem>
+                      <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ipAddress">IP Address</Label>
+                  <Input id="edit-ipAddress" name="ipAddress" defaultValue={editingDevice.ipAddress || ""} placeholder="e.g. 192.168.37.229" autoComplete="ip-address" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-macAddress">MAC Address</Label>
+                  <Input id="edit-macAddress" name="macAddress" defaultValue={editingDevice.macAddress || ""} placeholder="e.g. AA:BB:CC:DD:EE:FF" autoComplete="mac-address" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-serialNumber">Serial Number</Label>
+                  <Input id="edit-serialNumber" name="serialNumber" defaultValue={editingDevice.serialNumber} placeholder="e.g. ESP32-001" autoComplete="serial-number" />
+                </div>
+                <div>
+                  <Label htmlFor="courses">Assigned Courses</Label>
+                  <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-2">
+                    {courses.map(course => (
+                      <div key={course.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`course-${course.id}`}
+                          value={course.id}
+                          checked={selectedCourses.includes(course.id)}
+                          onChange={(e) => {
+                            const courseId = e.target.value;
+                            setSelectedCourses(prev => 
+                              e.target.checked 
+                                ? [...prev, courseId] 
+                                : prev.filter(id => id !== courseId)
+                            );
+                          }}
+                        />
+                        <label htmlFor={`course-${course.id}`}>{course.code} - {course.title}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-location">Location</Label>
-                <Input 
-                  id="edit-location" 
-                  name="location" 
-                  defaultValue={editingDevice?.location.name}
-                  required 
-                />
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-type">Device Type</Label>
-                <Select name="type" defaultValue={editingDevice?.type}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FINGERPRINT">Biometric Scanner</SelectItem>
-                    <SelectItem value="RFID">RFID Reader</SelectItem>
-                    <SelectItem value="HYBRID">Hybrid Device</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">Status</Label>
-                <Select name="status" defaultValue={editingDevice?.status}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="INACTIVE">Inactive</SelectItem>
-                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-ipAddress">IP Address</Label>
-                <Input 
-                  id="edit-ipAddress" 
-                  name="ipAddress" 
-                  defaultValue={editingDevice?.ipAddress || ""}
-                  placeholder="e.g. 192.168.37.229"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-macAddress">MAC Address</Label>
-                <Input 
-                  id="edit-macAddress" 
-                  name="macAddress" 
-                  defaultValue={editingDevice?.macAddress || ""}
-                  placeholder="e.g. AA:BB:CC:DD:EE:FF"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-serialNumber">Serial Number</Label>
-                <Input 
-                  id="edit-serialNumber" 
-                  name="serialNumber" 
-                  defaultValue={editingDevice?.serialNumber}
-                  placeholder="e.g. ESP32-001"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowEditModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Updating..." : "Update Device"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 } 

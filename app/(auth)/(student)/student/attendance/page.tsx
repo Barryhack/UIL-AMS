@@ -71,6 +71,21 @@ export default async function AttendancePage() {
     }
   })
 
+  // Convert Date objects to ISO strings for frontend compatibility
+  const sessionsWithStringDates = sessions.map(session => ({
+    ...session,
+    startTime: session.startTime.toISOString(),
+    endTime: session.endTime.toISOString(),
+    records: session.records.map(record => ({
+      ...record,
+      timestamp: record.timestamp.toISOString(),
+      student: {
+        ...record.student,
+        matricNumber: record.student.matricNumber || ""
+      }
+    }))
+  }))
+
   // Get recent attendance history
   const recentAttendance = await prisma.attendanceRecord.findMany({
     where: {
@@ -103,7 +118,7 @@ export default async function AttendancePage() {
         <p className="text-muted-foreground">View and record your course attendance</p>
       </div>
 
-      <SessionList initialSessions={sessions} />
+      <SessionList initialSessions={sessionsWithStringDates} />
 
       <div>
         <h2 className="text-2xl font-bold mb-4">Recent History</h2>

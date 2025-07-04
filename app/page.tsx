@@ -9,9 +9,17 @@ export default function HomePage() {
   const { data: session, status } = useSession()
 
   useEffect(() => {
+    console.log("HomePage useEffect triggered", { 
+      status, 
+      hasSession: !!session, 
+      userRole: session?.user?.role,
+      pathname: window.location.pathname 
+    })
+    
     if (status === "loading") return
 
     if (!session) {
+      console.log("No session, redirecting to login")
       router.push("/auth/login")
       return
     }
@@ -19,15 +27,19 @@ export default function HomePage() {
     // Redirect based on user role
     switch (session?.user?.role) {
       case "ADMIN":
+        console.log("Redirecting admin to dashboard")
         router.push("/admin/dashboard")
         break
       case "STUDENT":
+        console.log("Redirecting student to dashboard")
         router.push("/student/dashboard")
         break
       case "LECTURER":
+        console.log("Redirecting lecturer to dashboard")
         router.push("/lecturer/dashboard")
         break
       default:
+        console.log("Unknown role, redirecting to login")
         router.push("/auth/login")
     }
   }, [session, status, router])

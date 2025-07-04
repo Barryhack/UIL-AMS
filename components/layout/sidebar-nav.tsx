@@ -61,6 +61,11 @@ export function SidebarNav({ className, role, collapsed, ...props }: SidebarNavP
             icon: <BookOpen className="h-4 w-4" />,
           },
           {
+            href: "/admin/schedule",
+            title: "Schedules",
+            icon: <Calendar className="h-4 w-4" />,
+          },
+          {
             href: "/admin/devices",
             title: "Devices",
             icon: <Laptop className="h-4 w-4" />,

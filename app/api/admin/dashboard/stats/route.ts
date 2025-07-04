@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       totalCourses,
       totalDevices,
       recentRegistrations,
+      totalEnrollments
     ] = await Promise.all([
       prisma.user.count({
         where: { role: "STUDENT" },
@@ -71,6 +72,9 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
       }),
+      prisma.courseEnrollment.count({
+        where: { status: "ENROLLED" },
+      })
     ])
 
     // Get attendance stats for the last 6 months
@@ -105,6 +109,7 @@ export async function GET(request: NextRequest) {
       totalDevices,
       recentRegistrations,
       attendanceStats: formattedStats,
+      totalEnrollments,
     })
   } catch (error) {
     console.error("Error in GET /api/admin/dashboard/stats:", error)

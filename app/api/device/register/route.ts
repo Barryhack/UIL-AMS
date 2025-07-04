@@ -31,9 +31,10 @@ export async function POST(req: Request) {
     // Log the registration in audit log
     await prisma.auditLog.create({
       data: {
-        action: "USER_BIOMETRIC_REGISTRATION",
-        details: `User ${updatedUser.id} registered with fingerprint ID ${validatedData.fingerprintId} and RFID UID ${validatedData.rfidUid}`,
+        action: "DEVICE_REGISTERED",
+        details: `Device ${updatedUser.name} registered`,
         userId: updatedUser.id,
+        entity: "Device",
       },
     })
 

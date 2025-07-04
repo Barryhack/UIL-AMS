@@ -91,15 +91,15 @@ export async function POST(request: Request) {
       // Record attendance
       const attendance = await tx.attendanceRecord.create({
         data: {
-          userId,
           sessionId,
+          deviceId: authResult.device.id,
+          studentId: userId,
+          type: "IN",
           status: isLate ? "LATE" : "PRESENT",
           verificationMethod,
           timestamp: now,
-          deviceId: authResult.device.id,
-          latitude,
-          longitude,
-          syncStatus: "SYNCED",
+          syncedAt: now,
+          metadata: JSON.stringify({ latitude, longitude }),
         },
       })
 
@@ -125,11 +125,18 @@ export async function POST(request: Request) {
       await tx.auditLog.create({
         data: {
           action: "ATTENDANCE_MARKED",
-          entity: "AttendanceRecord",
-          entityId: attendance.id,
+          entity: "ATTENDANCE_RECORD",
           userId,
           details: `Attendance marked via ${verificationMethod} for ${session.course.code}`,
-          severity: "INFO",
+        },
+      })
+
+      await tx.auditLog.create({
+        data: {
+          action: "HARDWARE_VERIFIED",
+          details: `Hardware verified for user ${userId}`,
+          userId,
+          entity: "User",
         },
       })
 

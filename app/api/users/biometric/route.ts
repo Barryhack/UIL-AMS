@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 
@@ -105,9 +105,10 @@ export async function POST(req: Request) {
     // Log the biometric registration
     await prisma.auditLog.create({
       data: {
-        action: "BIOMETRIC_REGISTERED",
-        details: `Biometric data registered for user ${updatedUser.id} by ${session.user.id}`,
+        action: "BIOMETRIC_UPDATED",
+        details: `Biometric data updated for user ${user.id}`,
         userId: session.user.id,
+        entity: "User",
       },
     })
 

@@ -123,6 +123,15 @@ export async function PATCH(
         }
       })
 
+      await prisma.auditLog.create({
+        data: {
+          action: "COURSE_UPDATED",
+          details: `Course ${updatedCourse.title} updated`,
+          userId: session.user.id,
+          entity: "Course",
+        },
+      });
+
       return NextResponse.json(updatedCourse)
     } catch (validationError) {
       if (validationError instanceof z.ZodError) {

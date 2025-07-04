@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .status { padding: 10px; margin-top: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        #log { white-space: pre-wrap; background: #f1f1f1; padding: 10px; margin-top: 10px; height: 300px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+
+    <h2>Test Secure Connection (WSS for Browser)</h2>
+    <p>URL: <code>wss://localhost:4010/api/ws</code></p>
+    <div id="wss-status" class="status">Not Connected</div>
+
+    <h2>Test Insecure Connection (WS for Hardware)</h2>
+    <p>URL: <code>ws://localhost:4011/api/ws?deviceId=TEST_DEVICE</code></p>
+    <div id="ws-status" class="status">Not Connected</div>
+    
+    <h2>Logs</h2>
+    <div id="log"></div>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const log = (message) => {
+            logDiv.innerHTML += message + '\\n';
+        };
+
+        // --- Test WSS (Secure) ---
+        const wssStatus = document.getElementById('wss-status');
+        try {
+            const wss = new WebSocket('wss://localhost:4010/api/ws');
+            wss.onopen = () => {
+                log('WSS: Connection Opened');
+                wssStatus.textContent = 'Connected';
+                wssStatus.className = 'status success';
+            };
+            wss.onmessage = (event) => {
+                log(`WSS: Received Message: ${event.data}`);
+            };
+            wss.onerror = (error) => {
+                log(`WSS: Error: ${JSON.stringify(error)}`);
+                wssStatus.textContent = 'Error (Check Console)';
+                wssStatus.className = 'status error';
+            };
+            wss.onclose = () => {
+                log('WSS: Connection Closed');
+            };
+        } catch (e) {
+            log(`WSS: Caught Exception: ${e.message}`);
+            wssStatus.textContent = 'Caught Exception (Check Console)';
+            wssStatus.className = 'status error';
+        }
+
+        // --- Test WS (Insecure) ---
+        const wsStatus = document.getElementById('ws-status');
+        try {
+            const ws = new WebSocket('ws://localhost:4011/api/ws?deviceId=TEST_DEVICE_FROM_PAGE');
+            ws.onopen = () => {
+                log('WS: Connection Opened');
+                wsStatus.textContent = 'Connected';
+                wsStatus.className = 'status success';
+            };
+            ws.onmessage = (event) => {
+                log(`WS: Received Message: ${event.data}`);
+            };
+            ws.onerror = (error) => {
+                log(`WS: Error: ${JSON.stringify(error)}`);
+                wsStatus.textContent = 'Error (Check Console)';
+                wsStatus.className = 'status error';
+            };
+            ws.onclose = () => {
+                log('WS: Connection Closed');
+            };
+        } catch (e) {
+            log(`WS: Caught Exception: ${e.message}`);
+            wsStatus.textContent = 'Caught Exception (Check Console)';
+            wsStatus.className = 'status error';
+        }
+    </script>
+</body>
+</html> 

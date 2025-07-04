@@ -27,6 +27,11 @@ export interface StatusUpdate {
   message: string
 }
 
+const USE_BACKEND_WEBSOCKET = true;
+// For browser (frontend), connect to the secure WSS server on port 4010
+// For hardware, connect to the insecure WS server on port 4011
+const BACKEND_WS_URL = `ws://localhost:4011/api/ws`;
+
 class HardwareServiceImpl extends EventEmitter {
   private ws: WebSocket | null = null
   private deviceInfo: DeviceInfo = {
@@ -75,7 +80,8 @@ class HardwareServiceImpl extends EventEmitter {
 
     // Check connection status every 5 seconds
     this.connectionCheckInterval = setInterval(() => {
-      if (!this.isConnected() && !this.isReconnecting && !this.isDisconnecting) {
+      // Don't trigger reconnection if device is busy (scan in progress)
+      if (!this.isConnected() && !this.isReconnecting && !this.isDisconnecting && this.deviceInfo.status !== 'BUSY') {
         console.log('Connection check failed, attempting to reconnect...')
         this.initializeConnection()
       }
@@ -92,10 +98,19 @@ class HardwareServiceImpl extends EventEmitter {
 
     try {
       console.log('Initializing connection to hardware device...')
-      this.emit('statusUpdate', { 
-        status: 'connecting',
-        message: 'Looking for ESP32 device...\nPlease make sure:\n1. ESP32 is powered on\n2. Connect to UnilorinAMS WiFi network (password: 12345678)' 
-      })
+      
+      // If using backend WebSocket, don't try direct ESP32 connection
+      if (USE_BACKEND_WEBSOCKET) {
+        this.emit('statusUpdate', { 
+          status: 'connecting',
+          message: 'Connecting to backend WebSocket server...' 
+        })
+      } else {
+        this.emit('statusUpdate', { 
+          status: 'connecting',
+          message: 'Looking for ESP32 device...\nPlease make sure:\n1. ESP32 is powered on\n2. Connect to UnilorinAMS WiFi network (password: 12345678)' 
+        })
+      }
 
       const connected = await this.connect()
       if (!connected && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -113,10 +128,17 @@ class HardwareServiceImpl extends EventEmitter {
         }, this.reconnectDelay)
       } else if (!connected) {
         console.log('Max reconnection attempts reached')
-        this.emit('statusUpdate', { 
-          status: 'error',
-          message: 'Could not connect to ESP32.\nPlease check:\n1. ESP32 is powered on (LED should be on)\n2. You are connected to UnilorinAMS WiFi\n3. Try power cycling the ESP32' 
-        })
+        if (USE_BACKEND_WEBSOCKET) {
+          this.emit('statusUpdate', { 
+            status: 'error',
+            message: 'Could not connect to backend WebSocket server.\nPlease check:\n1. Backend server is running\n2. Network connection is stable' 
+          })
+        } else {
+          this.emit('statusUpdate', { 
+            status: 'error',
+            message: 'Could not connect to ESP32.\nPlease check:\n1. ESP32 is powered on (LED should be on)\n2. You are connected to UnilorinAMS WiFi\n3. Try power cycling the ESP32' 
+          })
+        }
         this.isReconnecting = false
         this.clearConnectionCheck()
       } else {
@@ -126,10 +148,17 @@ class HardwareServiceImpl extends EventEmitter {
       }
     } catch (error) {
       console.error('Failed to initialize connection:', error)
-      this.emit('statusUpdate', { 
-        status: 'error',
-        message: 'Connection failed. Please check:\n1. ESP32 is powered on\n2. Connect to UnilorinAMS WiFi network' 
-      })
+      if (USE_BACKEND_WEBSOCKET) {
+        this.emit('statusUpdate', { 
+          status: 'error',
+          message: 'Backend connection failed. Please check:\n1. Backend server is running\n2. Network connection is stable' 
+        })
+      } else {
+        this.emit('statusUpdate', { 
+          status: 'error',
+          message: 'Connection failed. Please check:\n1. ESP32 is powered on\n2. Connect to UnilorinAMS WiFi network' 
+        })
+      }
       
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++
@@ -145,12 +174,13 @@ class HardwareServiceImpl extends EventEmitter {
     }
   }
 
-  disconnect(): void {
-    try {
-      this.isDisconnecting = true
-      this.clearReconnectTimeout()
-      this.clearConnectionCheck()
+  disconnect(isManual = false): void {
+    console.log(`Disconnect called. Manual: ${isManual}, Port: ${this.currentPortIndex}`);
+    this.isDisconnecting = true
+    this.clearConnectionCheck()
+    this.clearReconnectTimeout()
 
+    try {
       if (this.ws) {
         // Remove all existing listeners before closing
         this.ws.onclose = null
@@ -211,37 +241,41 @@ class HardwareServiceImpl extends EventEmitter {
   }
 
   async connect(serverUrl?: string): Promise<boolean> {
-    if (this.isDisconnecting) {
-      return false
-    }
-
-    if (this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('Connection already in progress')
-      return false
-    }
-
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('Already connected')
-      return true
-    }
-
-    if (this.ws) {
-      this.disconnect()
-    }
-
     try {
-      const ip = this.deviceInfo.ipAddress
-      const port = this.ports[this.currentPortIndex]
-      const wsUrl = serverUrl || `ws://${ip}:${port}/ws`
-      
-      console.log(`Attempting connection to ${wsUrl} (Port ${port})`)
-      
-      this.emit('statusUpdate', { 
-        status: 'connecting',
-        message: `Trying to connect to ESP32 on port ${port}...\nMake sure you're connected to UnilorinAMS WiFi` 
-      })
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        console.log('Already connected to WebSocket')
+        return true
+      }
 
-      // Create WebSocket connection
+      if (this.ws?.readyState === WebSocket.CONNECTING) {
+        console.log('WebSocket connection already in progress')
+        return false
+      }
+
+      let wsUrl: string;
+      let port: number | undefined;
+      
+      if (USE_BACKEND_WEBSOCKET) {
+        // Use backend WebSocket server - explicitly use ws:// to prevent upgrade to wss://
+        wsUrl = BACKEND_WS_URL;
+        console.log(`Attempting connection to backend WebSocket server: ${wsUrl}`);
+        this.emit('statusUpdate', { 
+          status: 'connecting',
+          message: 'Connecting to backend WebSocket server...' 
+        });
+      } else {
+        // Use ESP32 direct connection
+        const ip = this.deviceInfo.ipAddress;
+        port = this.ports[this.currentPortIndex];
+        wsUrl = serverUrl || `ws://${ip}:${port}/ws`;
+        console.log(`Attempting connection to ${wsUrl} (Port ${port})`);
+        this.emit('statusUpdate', { 
+          status: 'connecting',
+          message: `Trying to connect to ESP32 on port ${port}...\nMake sure you're connected to UnilorinAMS WiFi` 
+        });
+      }
+
+      // Create WebSocket connection with explicit ws:// protocol
       this.ws = new WebSocket(wsUrl)
       
       const connected = await new Promise<boolean>((resolve) => {
@@ -253,15 +287,15 @@ class HardwareServiceImpl extends EventEmitter {
         const timeout = setTimeout(() => {
           console.log(`Connection timeout for ${wsUrl}`)
           if (this.ws && !this.isDisconnecting) {
-            this.lastError = `Connection timeout on port ${port}`
-            this.disconnect()
+            this.lastError = `Connection timeout for ${wsUrl}`;
+            this.ws.close(); // This will trigger onclose
           }
           resolve(false)
         }, 3000) // 3 second timeout per attempt
 
         this.ws.onopen = () => {
           clearTimeout(timeout)
-          console.log(`Successfully connected to ESP32 at ${wsUrl}`)
+          console.log(`Successfully connected to ${USE_BACKEND_WEBSOCKET ? 'backend WebSocket server' : `ESP32 at ${wsUrl}`}`)
           this.reconnectAttempts = 0
           this.deviceInfo.status = 'CONNECTED'
           this.lastError = null
@@ -269,44 +303,115 @@ class HardwareServiceImpl extends EventEmitter {
           this.emit('connected', this.deviceInfo)
           this.emit('statusUpdate', { 
             status: 'connected',
-            message: `Connected to ESP32 on port ${port}` 
+            message: USE_BACKEND_WEBSOCKET
+              ? 'Connected to backend WebSocket server'
+              : `Connected to ESP32 on port ${port}` 
           })
           resolve(true)
         }
 
-        this.ws.onclose = () => {
-          clearTimeout(timeout)
-          
-          if (this.ws && !this.isDisconnecting) {
-            const message = this.lastError || `Connection failed on port ${port}`
-            console.log(`WebSocket closed: ${message}`)
-            this.deviceInfo.status = 'DISCONNECTED'
-            this.emit('disconnected')
-            
-            // Try next port if available
-            this.currentPortIndex = (this.currentPortIndex + 1) % this.ports.length
-            if (this.currentPortIndex !== 0) {
-              this.emit('statusUpdate', { 
-                status: 'connecting',
-                message: `Connection failed on port ${port}, trying next port...\nMake sure you're connected to UnilorinAMS WiFi` 
-              })
-              this.connect() // Try next port
-            } else {
-              this.emit('statusUpdate', { 
-                status: 'disconnected',
-                message: 'Could not connect to ESP32.\nPlease check:\n1. ESP32 is powered on\n2. You are connected to UnilorinAMS WiFi\n3. Try power cycling the ESP32' 
-              })
-            }
+        this.ws.onclose = (event) => {
+          clearTimeout(timeout);
+          console.log(`WebSocket closed with code: ${event.code}, reason: ${event.reason}`);
+          this.ws = null;
+          this.deviceInfo.status = 'DISCONNECTED';
+          this.emit('disconnected');
+      
+          // If disconnection was not intentional, and we are not already trying to reconnect,
+          // start the reconnection process.
+          if (!this.isDisconnecting && !this.isReconnecting) {
+              console.log('WebSocket closed unexpectedly. Attempting to reconnect...');
+              this.reconnectAttempts = 0; // Reset attempts for a new sequence
+              this.initializeConnection();
           }
-          
-          this.ws = null
-          resolve(false)
-        }
+          resolve(false);
+        };
 
         this.ws.onerror = (error) => {
-          console.error(`WebSocket error on port ${port}:`, error)
-          this.lastError = `Connection failed on port ${port}`
+          console.error(`WebSocket error:`, error)
+          console.error('WebSocket URL attempted:', wsUrl)
+          console.error('WebSocket readyState:', this.ws?.readyState)
+          this.lastError = `WebSocket error`
           this.deviceInfo.status = 'ERROR'
+        }
+
+        this.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('Received WebSocket message:', data)
+            
+            // Handle different message types
+            switch (data.type) {
+              case 'welcome':
+                console.log('Server welcome message received')
+                break
+              case 'scan_received':
+                console.log('Scan received from server:', data)
+                this.handleScanResult({
+                  success: true,
+                  data: data.uid,
+                  cardId: data.uid
+                })
+                break
+              case 'fingerprint_result':
+                console.log('Fingerprint result received:', data)
+                this.handleScanResult({
+                  success: data.success,
+                  fingerprintId: data.fingerprintId,
+                  error: data.error
+                })
+                break
+              case 'rfid_result':
+                console.log('RFID result received:', data)
+                this.handleScanResult({
+                  success: data.success,
+                  cardId: data.cardId,
+                  error: data.error
+                })
+                break
+              case 'delete_result':
+                console.log('Delete result received:', data)
+                this.emit('deleteResult', {
+                  success: data.success,
+                  id: data.id,
+                  error: data.error
+                })
+                break
+              case 'template_count':
+                console.log('Template count received:', data)
+                this.emit('templateCount', {
+                  count: data.count
+                })
+                break
+              case 'session_created':
+                console.log('Session created:', data.session)
+                this.emit('sessionResult', { success: true, session: data.session })
+                break
+              case 'session_creation_failed':
+                console.error('Session creation failed:', data.error)
+                this.emit('sessionResult', { success: false, error: data.error })
+                break
+              case 'session_ended':
+                console.log('Session ended:', data.sessionId)
+                this.emit('sessionEnded', { sessionId: data.sessionId })
+                break
+              case 'session_update':
+                console.log('Session update received:', data)
+                this.emit('sessionUpdate', data)
+                break
+              case 'error':
+                console.error('Server error:', data.message)
+                this.handleError(data.message)
+                break
+              case 'relay_ack':
+                console.log('Command relayed to hardware:', data.command);
+                break
+              default:
+                console.log('Unknown message type:', data.type)
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error)
+          }
         }
       })
 
@@ -351,7 +456,7 @@ class HardwareServiceImpl extends EventEmitter {
     })
   }
 
-  async scanFingerprint(userId: number): Promise<string> {
+  async scanFingerprint(userId: number, deviceId?: string): Promise<string> {
     console.log('Starting fingerprint scan for user:', userId)
     console.log('Current device status:', this.deviceInfo.status)
     console.log('WebSocket state:', this.ws?.readyState)
@@ -406,7 +511,8 @@ class HardwareServiceImpl extends EventEmitter {
         console.log('Sending fingerprint scan command')
         this.sendMessage({
           command: 'fingerprint',
-          action: 'scan'
+          action: 'scan',
+          ...(deviceId ? { deviceId } : {})
         })
       } catch (error) {
         console.error('Error sending scan command:', error)
@@ -415,7 +521,7 @@ class HardwareServiceImpl extends EventEmitter {
     })
   }
 
-  async scanRFID(): Promise<string> {
+  async scanRFID(deviceId?: string): Promise<string> {
     if (!this.isConnected()) {
       throw new Error('Device is not connected')
     }
@@ -456,12 +562,13 @@ class HardwareServiceImpl extends EventEmitter {
 
       this.sendMessage({
         command: 'rfid',
-        action: 'scan'
+        action: 'scan',
+        ...(deviceId ? { deviceId } : {})
       })
     })
   }
 
-  async enrollFingerprint(userId: number): Promise<void> {
+  async enrollFingerprint(userId: number, deviceId?: string): Promise<void> {
     if (!this.isConnected()) {
       throw new Error('Device is not connected')
     }
@@ -503,7 +610,8 @@ class HardwareServiceImpl extends EventEmitter {
       this.sendMessage({
         command: 'fingerprint',
         action: 'enroll',
-        id: userId
+        id: userId,
+        ...(deviceId ? { deviceId } : {})
       })
     })
   }
@@ -526,6 +634,175 @@ class HardwareServiceImpl extends EventEmitter {
       console.error('Connection test failed:', error)
       return false
     }
+  }
+
+  async deleteAllFingerprints(): Promise<void> {
+    console.log('deleteAllFingerprints called');
+    if (!this.isConnected()) {
+      throw new Error('Device is not connected')
+    }
+
+    if (this.deviceInfo.status === 'BUSY') {
+      throw new Error('Device is busy')
+    }
+
+    this.deviceInfo.status = 'BUSY'
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.deviceInfo.status = 'CONNECTED'
+        reject(new Error('Delete timeout'))
+      }, this.scanTimeout)
+
+      const handleResult = (result: any) => {
+        clearTimeout(timeout)
+        this.removeListener('deleteResult', handleResult)
+        this.removeListener('error', handleError)
+
+        if (result.success) {
+          resolve()
+        } else {
+          reject(new Error(result.error || 'Delete failed'))
+        }
+      }
+
+      const handleError = (error: Error) => {
+        clearTimeout(timeout)
+        this.removeListener('deleteResult', handleResult)
+        this.removeListener('error', handleError)
+        reject(error)
+      }
+
+      this.once('deleteResult', handleResult)
+      this.once('error', handleError)
+
+      this.sendMessage({
+        command: 'fingerprint',
+        action: 'delete_all'
+      })
+    })
+  }
+
+  async getFingerprintCount(): Promise<number> {
+    console.log('getFingerprintCount called');
+    if (!this.isConnected()) {
+      throw new Error('Device is not connected')
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Count timeout'))
+      }, 10000)
+
+      const handleResult = (result: any) => {
+        clearTimeout(timeout)
+        this.removeListener('templateCount', handleResult)
+        this.removeListener('error', handleError)
+
+        if (result.count !== undefined) {
+          resolve(result.count)
+        } else {
+          reject(new Error('Invalid count result'))
+        }
+      }
+
+      const handleError = (error: Error) => {
+        clearTimeout(timeout)
+        this.removeListener('templateCount', handleResult)
+        this.removeListener('error', handleError)
+        reject(error)
+      }
+
+      this.once('templateCount', handleResult)
+      this.once('error', handleError)
+
+      this.sendMessage({
+        command: 'fingerprint',
+        action: 'count'
+      })
+    })
+  }
+
+  async createAttendanceSession(sessionData: any): Promise<any> {
+    console.log('createAttendanceSession called', sessionData);
+    if (!this.isConnected()) {
+      throw new Error('Device is not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Create session timeout'));
+      }, 15000); // 15-second timeout
+
+      const handleResult = (result: any) => {
+        clearTimeout(timeout);
+        this.removeListener('sessionResult', handleResult);
+        this.removeListener('error', handleError);
+
+        if (result.success) {
+          resolve(result.session);
+        } else {
+          reject(new Error(result.error || 'Failed to create session'));
+        }
+      };
+
+      const handleError = (error: Error) => {
+        clearTimeout(timeout);
+        this.removeListener('sessionResult', handleResult);
+        this.removeListener('error', handleError);
+        reject(error);
+      };
+
+      this.once('sessionResult', handleResult);
+      this.once('error', handleError);
+
+      this.sendMessage({
+        command: 'session',
+        action: 'create',
+        data: sessionData,
+      });
+    });
+  }
+
+  async endAttendanceSession(sessionId: number): Promise<void> {
+    console.log('endAttendanceSession called for session:', sessionId);
+    if (!this.isConnected()) {
+      throw new Error('Device is not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('End session timeout'));
+      }, 15000);
+
+      const handleResult = (result: any) => {
+        // Don't clear timeout here, as we might get multiple sessionEnded events
+        // for different sessions. We only resolve when our specific session has ended.
+        if (result.sessionId === sessionId) {
+          clearTimeout(timeout);
+          this.removeListener('sessionEnded', handleResult);
+          this.removeListener('error', handleError);
+          resolve();
+        }
+      };
+
+      const handleError = (error: Error) => {
+        clearTimeout(timeout);
+        this.removeListener('sessionEnded', handleResult);
+        this.removeListener('error', handleError);
+        reject(error);
+      };
+
+      // Use 'on' instead of 'once' in case other session-end events come through
+      this.on('sessionEnded', handleResult);
+      this.once('error', handleError);
+
+      this.sendMessage({
+        command: 'session',
+        action: 'end',
+        data: { sessionId },
+      });
+    });
   }
 }
 

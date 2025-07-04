@@ -14,7 +14,8 @@ const publicPaths = [
   '/api/auth/providers',
   '/api/auth/verify',
   '/ping',
-  '/api/ping'
+  '/api/ping',
+  '/api/hardware/sync'
 ]
 
 export async function middleware(request: NextRequest) {
@@ -58,18 +59,18 @@ export async function middleware(request: NextRequest) {
 
   // If accessing a role-specific path, check if user has correct role
   if (isAccessingRoleSpecificPath) {
-    const allowedPath = `/${role}/dashboard`
-    if (!pathname.startsWith(`/${role}`)) {
-      return NextResponse.redirect(new URL(allowedPath, request.url))
+    const userRolePath = `/${role}`
+    
+    // If user is trying to access a different role's path, redirect to their dashboard
+    if (!pathname.startsWith(userRolePath)) {
+      return NextResponse.redirect(new URL(`${userRolePath}/dashboard`, request.url))
     }
+    
+    // If user is accessing their own role's path, allow it (including sub-paths)
+    return NextResponse.next()
   }
 
-  // If accessing /dashboard, redirect to role-specific dashboard
-  if (pathname === '/dashboard') {
-    const redirectUrl = `/${role}/dashboard`
-    return NextResponse.redirect(new URL(redirectUrl, request.url))
-  }
-
+  // For non-role-specific paths, allow access
   return NextResponse.next()
 }
 
@@ -83,6 +84,6 @@ export const config = {
      * - public folder
      * - static assets
      */
-    '/((?!api/ping|_next/static|_next/image|favicon.ico|images|assets|public).*)',
+    '/((?!api/ping|api/ws|_next/static|_next/image|favicon.ico|images|assets|public).*)',
   ],
 }

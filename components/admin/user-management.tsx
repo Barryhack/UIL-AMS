@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { HardwareScanner } from "@/components/forms/HardwareScanner"
+import dynamic from "next/dynamic"
 import { faculties } from "@/lib/constants/faculties"
 import {
   Table,
@@ -19,6 +19,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Edit, Trash, Fingerprint, CreditCard } from "lucide-react"
+import { EditUserModal } from "@/components/admin/edit-user-modal"
+
+// Dynamically import HardwareScanner to prevent SSR issues
+const HardwareScanner = dynamic(() => import("@/components/forms/HardwareScanner").then(mod => ({ default: mod.HardwareScanner })), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center p-4">Loading scanner...</div>
+})
 
 interface UserManagementProps {
   users: {
@@ -29,6 +36,8 @@ interface UserManagementProps {
     matricNumber: string | null
     department: string | null
     createdAt: Date
+    fingerprintId: string | null
+    rfidUid: string | null
   }[]
 }
 
@@ -39,69 +48,82 @@ export function UserManagement({ users }: UserManagementProps) {
   const [biometricData, setBiometricData] = useState<string | null>(null)
   const [rfidData, setRfidData] = useState<string | null>(null)
   const [selectedFaculty, setSelectedFaculty] = useState<string>("")
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([])
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [selectedLevel, setSelectedLevel] = useState<string>("")
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("")
+  const [studentStep, setStudentStep] = useState(1); // 1: basic info, 2: scan
+  const [createdStudentId, setCreatedStudentId] = useState<string | null>(null);
+  const [devices, setDevices] = useState<any[]>([])
+  const [devicesLoading, setDevicesLoading] = useState(false)
+  const [editUser, setEditUser] = useState<any | null>(null);
+
+  useEffect(() => {
+    setDevicesLoading(true)
+    fetch("/api/admin/devices", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        setDevices(Array.isArray(data) ? data : [])
+        setDevicesLoading(false)
+      })
+      .catch(() => setDevicesLoading(false))
+  }, [])
 
   const handleFacultyChange = (facultyId: string) => {
     setSelectedFaculty(facultyId)
-    setSelectedDepartments([])
+    setSelectedDepartment("")
   }
 
-  const handleStudentRegistration = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    setIsLoading(true)
-
+  const handleStudentBasicInfo = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setIsLoading(true);
     try {
-      const formData = new FormData(form)
-      const email = formData.get("email") as string
-      const matricNumber = formData.get("matricNumber") as string
-
-      // Validate student email format
-      if (!email.endsWith("@student.unilorin.edu.ng")) {
-        throw new Error("Email must be in format: username@student.unilorin.edu.ng")
+      const formData = new FormData(form);
+      const email = formData.get("email") as string;
+      const matricNumber = formData.get("matricNumber") as string;
+      if (!email.endsWith("@students.unilorin.edu.ng")) {
+        throw new Error("Email must be in format: username@students.unilorin.edu.ng");
       }
-
-      // Validate biometric and RFID data
-      if (!biometricData || !rfidData) {
-        throw new Error("Both fingerprint and RFID card scans are required")
+      if (!selectedDeviceId) {
+        throw new Error("Device assignment is required");
       }
-
+      if (!selectedDepartment) {
+        throw new Error("Department is required");
+      }
+      if (!selectedLevel) {
+        throw new Error("Level is required");
+      }
       const studentData = {
         name: formData.get("name"),
         email,
-        password: matricNumber, // Use matric number as default password
+        password: matricNumber,
+        confirmPassword: matricNumber,
         matricNumber,
-        faculty: formData.get("faculty"),
-        department: formData.get("department"),
-        level: formData.get("level"),
+        faculty: selectedFaculty,
+        department: selectedDepartment,
+        level: selectedLevel,
         role: "STUDENT",
-        biometricData,
-        rfidData
-      }
-
+        deviceId: selectedDeviceId,
+      };
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(studentData),
-      })
-
-      const data = await response.json()
-
+      });
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to register student")
+        throw new Error(data.error || "Failed to register student");
       }
-
-      toast.success("Student registered successfully. Default password is their matric number.")
-      form.reset()
-      setBiometricData('')
-      setRfidData('')
+      toast.success("Basic info saved. Proceed to scan fingerprint and RFID.");
+      setCreatedStudentId(data.user.id);
+      setStudentStep(2);
     } catch (error) {
-      console.error("Registration error:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to register student")
+      console.error("Registration error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to register student");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleLecturerRegistration = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -114,24 +136,22 @@ export function UserManagement({ users }: UserManagementProps) {
       const password = formData.get("password") as string
       const confirmPassword = formData.get("confirmPassword") as string
 
-      // Validate lecturer email format
       if (!email.endsWith("@staff.unilorin.edu.ng")) {
         throw new Error("Email must be in format: username@staff.unilorin.edu.ng")
       }
-
-      // Validate password
+      if (!selectedDeviceId) {
+        throw new Error("Device assignment is required")
+      }
       if (password.length < 8) {
         throw new Error("Password must be at least 8 characters long")
       }
-
-      // Validate password confirmation
       if (password !== confirmPassword) {
         throw new Error("Passwords do not match")
       }
-
-      // Validate biometric and RFID data
-      if (!biometricData || !rfidData) {
-        throw new Error("Both fingerprint and RFID card scans are required")
+      // Only require both scans for students
+      // For lecturers and admins, allow registration without both
+      if (formData.get("role") === "STUDENT" && (!biometricData || !rfidData)) {
+        throw new Error("Both fingerprint and RFID card scans are required for students")
       }
 
       const lecturerData = {
@@ -144,7 +164,8 @@ export function UserManagement({ users }: UserManagementProps) {
         department: formData.get("department"),
         role: "LECTURER",
         biometricData,
-        rfidData
+        rfidData,
+        deviceId: selectedDeviceId,
       }
 
       const response = await fetch("/api/admin/users", {
@@ -171,23 +192,75 @@ export function UserManagement({ users }: UserManagementProps) {
     }
   }
 
+  const handleBiometricUpdate = async (updateData: { fingerprintId?: string; rfidUid?: string }) => {
+    if (!createdStudentId) {
+      toast.error("No student selected for biometric update.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/users/${createdStudentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update biometric data.');
+      }
+      toast.success('Biometric data saved successfully!');
+    } catch (error) {
+      console.error('Biometric update error:', error);
+      toast.error(error instanceof Error ? error.message : 'An unknown error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleFingerprintScanned = (data: string) => {
     setBiometricData(data)
     setScanMode(null)
     toast.success("Fingerprint scan completed")
+    handleBiometricUpdate({ fingerprintId: data })
   }
 
   const handleRFIDScanned = (data: string) => {
     setRfidData(data)
     setScanMode(null)
     toast.success("RFID card scanned successfully")
+    handleBiometricUpdate({ rfidUid: data })
   }
 
   const handleFingerprintEnrolled = (data: string) => {
     setBiometricData(data)
     setScanMode(null)
     toast.success("Fingerprint enrolled successfully")
+    handleBiometricUpdate({ fingerprintId: data })
   }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/admin/users?id=${userId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete user");
+      }
+      toast.success(data.message || "User deleted successfully");
+      window.location.reload();
+    } catch (error) {
+      console.error("User deletion error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to delete user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -204,154 +277,240 @@ export function UserManagement({ users }: UserManagementProps) {
             </TabsList>
 
             <TabsContent value="students">
-              <form onSubmit={handleStudentRegistration} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" name="name" required />
+              {studentStep === 1 && (
+                <form onSubmit={handleStudentBasicInfo} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-name">Full Name</Label>
+                      <Input 
+                        id="student-name" 
+                        name="name" 
+                        autoComplete="name"
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-email">Email</Label>
+                      <Input 
+                        id="student-email" 
+                        name="email" 
+                        type="email" 
+                        autoComplete="email"
+                        placeholder="username@student.unilorin.edu.ng"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      name="email" 
-                      type="email" 
-                      placeholder="username@student.unilorin.edu.ng"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-matricNumber">Matric Number</Label>
+                      <Input 
+                        id="student-matricNumber" 
+                        name="matricNumber" 
+                        autoComplete="off"
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-level">Level</Label>
+                      <Select 
+                        name="level" 
+                        value={selectedLevel}
+                        onValueChange={setSelectedLevel}
+                        required
+                      >
+                        <SelectTrigger id="student-level">
+                          <SelectValue placeholder="Select level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="100">100 Level</SelectItem>
+                          <SelectItem value="200">200 Level</SelectItem>
+                          <SelectItem value="300">300 Level</SelectItem>
+                          <SelectItem value="400">400 Level</SelectItem>
+                          <SelectItem value="500">500 Level</SelectItem>
+                          <SelectItem value="600">600 Level</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="matricNumber">Matric Number</Label>
-                    <Input id="matricNumber" name="matricNumber" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="level">Level</Label>
-                    <Select name="level" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="100">100 Level</SelectItem>
-                        <SelectItem value="200">200 Level</SelectItem>
-                        <SelectItem value="300">300 Level</SelectItem>
-                        <SelectItem value="400">400 Level</SelectItem>
-                        <SelectItem value="500">500 Level</SelectItem>
-                        <SelectItem value="600">600 Level</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="faculty">Faculty</Label>
-                    <Select 
-                      name="faculty" 
-                      value={selectedFaculty}
-                      onValueChange={handleFacultyChange}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select faculty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {faculties.map((faculty) => (
-                          <SelectItem 
-                            key={faculty.id} 
-                            value={faculty.id}
-                          >
-                            {faculty.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select 
-                      name="department" 
-                      required
-                      disabled={!selectedFaculty}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={selectedFaculty ? "Select department" : "Select faculty first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectedFaculty && faculties
-                          .find(f => f.id === selectedFaculty)
-                          ?.departments.map((dept) => (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-faculty">Faculty</Label>
+                      <Select 
+                        name="faculty" 
+                        value={selectedFaculty}
+                        onValueChange={handleFacultyChange}
+                        required
+                      >
+                        <SelectTrigger id="student-faculty">
+                          <SelectValue placeholder="Select faculty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {faculties.map((faculty) => (
                             <SelectItem 
-                              key={dept} 
-                              value={dept}
+                              key={faculty.id} 
+                              value={faculty.id}
                             >
-                              {dept}
+                              {faculty.name}
                             </SelectItem>
                           ))}
-                      </SelectContent>
-                    </Select>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-department">Department</Label>
+                      <Select 
+                        name="department" 
+                        value={selectedDepartment}
+                        onValueChange={setSelectedDepartment}
+                        required
+                        disabled={!selectedFaculty}
+                      >
+                        <SelectTrigger id="student-department">
+                          <SelectValue placeholder={selectedFaculty ? "Select department" : "Select faculty first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedFaculty && faculties
+                            .find(f => f.id === selectedFaculty)
+                            ?.departments.map((dept) => (
+                              <SelectItem 
+                                key={dept} 
+                                value={dept}
+                              >
+                                {dept}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-register-device">Assign Device</Label>
+                      <Select
+                        value={selectedDeviceId}
+                        onValueChange={setSelectedDeviceId}
+                        disabled={devicesLoading || devices.length === 0}
+                      >
+                        <SelectTrigger id="student-register-device">
+                          <SelectValue placeholder={devicesLoading ? "Loading devices..." : "Select device"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {devices.map(device => (
+                            <SelectItem key={device.id} value={device.id}>
+                              {device.name} ({device.macAddress || device.deviceId || device.serialNumber})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    Save & Continue
+                  </Button>
+                </form>
+              )}
+              {studentStep === 2 && createdStudentId && (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-medium">Step 2: Scan Fingerprint & RFID</h3>
+                    <p className="text-sm text-gray-500">Please scan the student's fingerprint and RFID card.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <Button
                       type="button"
                       variant="outline"
-                    onClick={() => setScanMode('ENROLL')}
-                    className="w-full"
+                      onClick={() => {
+                        setCurrentUserId(createdStudentId);
+                        setScanMode('ENROLL');
+                      }}
+                      className="w-full"
                     >
-                    <Fingerprint className="mr-2 h-4 w-4" />
-                    {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
+                      <Fingerprint className="mr-2 h-4 w-4" />
+                      {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                    onClick={() => setScanMode('SCAN')}
-                    className="w-full"
+                      onClick={() => {
+                        setCurrentUserId(createdStudentId);
+                        setScanMode('SCAN');
+                      }}
+                      className="w-full"
                     >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
                     </Button>
+                  </div>
+                  {(biometricData && rfidData) && (
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={async () => {
+                        // Set registrationStatus to COMPLETED
+                        if (createdStudentId) {
+                          await fetch(`/api/users/${createdStudentId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ registrationStatus: 'COMPLETED' }),
+                          });
+                        }
+                        toast.success("Student registration complete!");
+                        setStudentStep(1);
+                        setCreatedStudentId(null);
+                        setBiometricData(null);
+                        setRfidData(null);
+                        window.location.reload();
+                      }}
+                    >
+                      Finish & Register Another Student
+                    </Button>
+                  )}
                 </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  Register Student
-                </Button>
-              </form>
+              )}
             </TabsContent>
 
             <TabsContent value="lecturers">
               <form onSubmit={handleLecturerRegistration} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" name="name" required />
+                    <Label htmlFor="lecturer-name">Full Name</Label>
+                    <Input 
+                      id="lecturer-name" 
+                      name="name" 
+                      autoComplete="name"
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="lecturer-email">Email</Label>
                     <Input 
-                      id="email" 
+                      id="lecturer-email" 
                       name="email" 
                       type="email" 
+                      autoComplete="email"
                       placeholder="username@staff.unilorin.edu.ng"
                       required
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="staffId">Staff ID</Label>
-                    <Input id="staffId" name="staffId" required />
+                    <Label htmlFor="lecturer-staffId">Staff ID</Label>
+                    <Input 
+                      id="lecturer-staffId" 
+                      name="staffId" 
+                      autoComplete="off"
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="lecturer-password">Password</Label>
                     <Input 
-                      id="password" 
+                      id="lecturer-password" 
                       name="password" 
                       type="password" 
+                      autoComplete="new-password"
                       required 
                       minLength={8}
                     />
@@ -359,11 +518,12 @@ export function UserManagement({ users }: UserManagementProps) {
                 </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Label htmlFor="lecturer-confirmPassword">Confirm Password</Label>
                     <Input 
-                      id="confirmPassword" 
+                      id="lecturer-confirmPassword" 
                       name="confirmPassword" 
                       type="password" 
+                      autoComplete="new-password"
                       required 
                       minLength={8}
                     />
@@ -371,14 +531,14 @@ export function UserManagement({ users }: UserManagementProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="faculty">Faculty</Label>
+                    <Label htmlFor="lecturer-faculty">Faculty</Label>
                     <Select 
                       name="faculty" 
                       value={selectedFaculty}
                       onValueChange={handleFacultyChange}
                       required
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="lecturer-faculty">
                         <SelectValue placeholder="Select faculty" />
                       </SelectTrigger>
                       <SelectContent>
@@ -394,13 +554,15 @@ export function UserManagement({ users }: UserManagementProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
+                    <Label htmlFor="lecturer-department">Department</Label>
                     <Select 
                       name="department" 
+                      value={selectedDepartment}
+                      onValueChange={setSelectedDepartment}
                       required
                       disabled={!selectedFaculty}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="lecturer-department">
                         <SelectValue placeholder={selectedFaculty ? "Select department" : "Select faculty first"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -420,24 +582,45 @@ export function UserManagement({ users }: UserManagementProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setScanMode('ENROLL')}
-                    className="w-full"
-                  >
-                    <Fingerprint className="mr-2 h-4 w-4" />
-                    {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setScanMode('SCAN')}
-                    className="w-full"
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
-                  </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="lecturer-register-device">Assign Device</Label>
+                    <Select
+                      value={selectedDeviceId}
+                      onValueChange={setSelectedDeviceId}
+                      disabled={devicesLoading || devices.length === 0}
+                    >
+                      <SelectTrigger id="lecturer-register-device">
+                        <SelectValue placeholder={devicesLoading ? "Loading devices..." : "Select device"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {devices.map(device => (
+                          <SelectItem key={device.id} value={device.id}>
+                            {device.name} ({device.macAddress || device.deviceId || device.serialNumber})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setScanMode('ENROLL')}
+                      className="w-full"
+                    >
+                      <Fingerprint className="mr-2 h-4 w-4" />
+                      {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setScanMode('SCAN')}
+                      className="w-full"
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
+                    </Button>
+                  </div>
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -464,6 +647,8 @@ export function UserManagement({ users }: UserManagementProps) {
                   <TableHead>Role</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Matric Number</TableHead>
+                  <TableHead>Fingerprint ID</TableHead>
+                  <TableHead>RFID UID</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -475,12 +660,14 @@ export function UserManagement({ users }: UserManagementProps) {
                     <TableCell>{user.role}</TableCell>
                     <TableCell>{user.department || "-"}</TableCell>
                     <TableCell>{user.matricNumber || "-"}</TableCell>
+                    <TableCell>{user.fingerprintId || "-"}</TableCell>
+                    <TableCell>{user.rfidUid || "-"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => setEditUser(user)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)} disabled={isLoading}>
                           <Trash className="h-4 w-4" />
                         </Button>
                       </div>
@@ -501,7 +688,7 @@ export function UserManagement({ users }: UserManagementProps) {
             </h2>
             <HardwareScanner
               mode={scanMode}
-              userId={currentUserId}
+              userId={currentUserId || undefined}
               onRFIDScanned={handleRFIDScanned}
               onFingerprintScanned={handleFingerprintScanned}
               onFingerprintEnrolled={handleFingerprintEnrolled}
@@ -515,6 +702,15 @@ export function UserManagement({ users }: UserManagementProps) {
             </Button>
           </div>
         </div>
+      )}
+
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          open={!!editUser}
+          onClose={() => setEditUser(null)}
+          onSave={() => window.location.reload()}
+        />
       )}
     </div>
   )

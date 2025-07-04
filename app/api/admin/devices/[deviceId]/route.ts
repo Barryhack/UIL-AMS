@@ -14,57 +14,61 @@ export async function PATCH(
     }
 
     const data = await req.json()
-    const { name, location, type, status, ipAddress, macAddress } = data
+    const { name, location, type, status, ipAddress, macAddress, courseIds } = data
 
-    // Check if device exists
-    const existingDevice = await prisma.device.findUnique({
-      where: { id: params.deviceId },
-      include: { location: true }
-    })
+    const updatedDevice = await prisma.$transaction(async (tx) => {
+      // 1. Find or create the location to get its ID
+      let locationRecord = await tx.location.findFirst({
+        where: { name: location },
+      });
+      if (!locationRecord) {
+        locationRecord = await tx.location.create({
+          data: { name: location },
+        });
+      }
 
-    if (!existingDevice) {
-      return NextResponse.json({ error: "Device not found" }, { status: 404 })
-    }
+      // 2. Update course assignments
+      if (courseIds && Array.isArray(courseIds)) {
+        // First, remove all existing assignments for this device
+        await tx.courseDevice.deleteMany({
+          where: { deviceId: params.deviceId },
+        });
 
-    // Update or create location
-    let locationId = existingDevice.location.id
-    if (location !== existingDevice.location.name) {
-      const updatedLocation = await prisma.location.create({
-        data: { name: location }
-      })
-      locationId = updatedLocation.id
-    }
-
-    // Update device
-    const device = await prisma.device.update({
-      where: { id: params.deviceId },
-      data: {
-        name,
-        type,
-        status,
-        locationId
-      },
-      include: {
-        location: true,
-        _count: {
-          select: {
-            attendanceRecords: true
-          }
+        // Then, create the new assignments
+        if (courseIds.length > 0) {
+          await tx.courseDevice.createMany({
+            data: courseIds.map((courseId: string) => ({
+              deviceId: params.deviceId,
+              courseId: courseId,
+            })),
+          });
         }
       }
-    })
+      
+      // 3. Update device details, now with the correct locationId
+      const device = await tx.device.update({
+        where: { id: params.deviceId },
+        data: {
+          name,
+          locationId: locationRecord.id,
+          type,
+          status,
+          ipAddress,
+          macAddress,
+        },
+        include: {
+          location: true,
+          _count: {
+            select: {
+              attendanceRecords: true
+            }
+          }
+        }
+      });
+      return device;
+    });
 
-    // If network fields are provided, update them
-    if (ipAddress !== undefined || macAddress !== undefined) {
-      await prisma.$executeRaw`
-        UPDATE devices 
-        SET ip_address = ${ipAddress || null}, 
-            mac_address = ${macAddress || null}
-        WHERE id = ${params.deviceId}
-      `
-    }
-
-    return NextResponse.json(device)
+    return NextResponse.json(updatedDevice)
   } catch (error) {
     console.error("Error in PATCH /api/admin/devices/[deviceId]:", error)
     return NextResponse.json(

@@ -71,9 +71,10 @@ export function getMockBiometricData(userId: string) {
 
 // Find a user by fingerprint data
 export function findUserByFingerprintData(fingerprintData: string) {
-  for (const [userId, data] of mockBiometricStore.entries()) {
+  const entries = Array.from(mockBiometricStore.entries())
+  for (const [id, data] of entries) {
     if (data.fingerprintData === fingerprintData) {
-      return { userId, ...data }
+      return { userId: id, fingerprintData: data.fingerprintData, fingerprintId: data.fingerprintId, rfidData: data.rfidData, rfidUid: data.rfidUid }
     }
   }
   return null
@@ -81,9 +82,10 @@ export function findUserByFingerprintData(fingerprintData: string) {
 
 // Find a user by RFID data
 export function findUserByRfidData(rfidData: string) {
-  for (const [userId, data] of mockBiometricStore.entries()) {
+  const entries = Array.from(mockBiometricStore.entries())
+  for (const [id, data] of entries) {
     if (data.rfidData === rfidData) {
-      return { userId, ...data }
+      return { userId: id, fingerprintData: data.fingerprintData, fingerprintId: data.fingerprintId, rfidData: data.rfidData, rfidUid: data.rfidUid }
     }
   }
   return null

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <script>
+      const ws = new WebSocket('ws://192.168.60.118:4010/api/ws');
+      ws.onopen = () => console.log('WebSocket opened!');
+      ws.onerror = (e) => console.error('WebSocket error:', e);
+      ws.onclose = () => console.log('WebSocket closed');
+    </script>
+    <h1>WebSocket Test</h1>
+  </body>
+</html> 

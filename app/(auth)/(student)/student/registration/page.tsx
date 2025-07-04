@@ -9,7 +9,7 @@ interface Course {
   id: string
   code: string
   title: string
-  unit: number
+  units: number
   lecturer: {
     name: string
   }
@@ -61,7 +61,7 @@ export default async function RegistrationPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">{course.unit} Units</div>
+                    <div className="font-medium">{course.units} Units</div>
                     <RegisterCourseButton 
                       courseId={course.id}
                       isRegistered={true}
@@ -87,7 +87,7 @@ export default async function RegistrationPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">{course.unit} Units</div>
+                    <div className="font-medium">{course.units} Units</div>
                     <RegisterCourseButton 
                       courseId={course.id}
                       isRegistered={false}

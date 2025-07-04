@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 
@@ -18,18 +20,24 @@ const syncSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await req.json()
 
     // Validate request body
     const validatedData = syncSchema.parse(body)
 
     // Update device last seen timestamp
-    await prisma.deviceRegistration.update({
+    await prisma.device.update({
       where: {
-        deviceId: validatedData.deviceId,
+        id: validatedData.deviceId,
       },
       data: {
-        lastSeen: new Date(),
+        updatedAt: new Date(),
       },
     })
 
@@ -63,6 +71,7 @@ export async function POST(req: Request) {
               deviceId: validatedData.deviceId,
               timestamp: new Date(record.timestamp),
               status: record.status || "PRESENT",
+              type: "IN",
             },
           })
 
@@ -81,14 +90,6 @@ export async function POST(req: Request) {
         }
       }),
     )
-
-    // Log the sync in audit log
-    await prisma.auditLog.create({
-      data: {
-        action: "DEVICE_SYNC",
-        details: `Device ${validatedData.deviceId} synced ${validatedData.records.length} records`,
-      },
-    })
 
     return NextResponse.json({
       success: true,

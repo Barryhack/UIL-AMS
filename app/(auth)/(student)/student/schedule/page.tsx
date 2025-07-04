@@ -53,7 +53,7 @@ export default async function SchedulePage() {
     ]
   }) as Schedule[]
 
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
   if (schedules.length === 0) {
     return (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
@@ -192,12 +192,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       },
     })
 
+    // Check that the session user exists before creating the audit log
+    const actingUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+    if (!actingUser) {
+      console.error("Session user not found in database:", session.user.id);
+      return NextResponse.json({ success: false, message: "Session user not found in database" }, { status: 500 });
+    }
+
     // Log the user update
     await prisma.auditLog.create({
       data: {
         action: "USER_UPDATED",
-        details: `User ${user.id} updated by ${session.user.id}`,
+        details: `User ${user.name} updated`,
         userId: session.user.id,
+        entity: "User",
       },
     })
 
@@ -255,8 +263,9 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     await prisma.auditLog.create({
       data: {
         action: "USER_DELETED",
-        details: `User ${params.id} deleted by ${session.user.id}`,
+        details: `User ${user.name} deleted`,
         userId: session.user.id,
+        entity: "User",
       },
     })
 

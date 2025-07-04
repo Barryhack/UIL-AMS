@@ -24,41 +24,56 @@ import { chromium } from 'playwright';
     await page.waitForURL('http://localhost:3000/admin/dashboard');
     console.log('Admin login successful!\n');
 
-    // Test 2: User Registration
+    // Test 2: User Registration via Users Management
     console.log('Testing User Registration...');
-    await page.goto('http://localhost:3000/admin/users/register');
-    console.log('- Navigated to user registration page');
+    await page.goto('http://localhost:3000/admin/users');
+    console.log('- Navigated to users management page');
     
-    // Wait for the form to be visible
+    // Wait for the "Add New User" button and click it
+    await page.waitForSelector('button:has-text("Add New User")', { timeout: 5000 });
+    await page.click('button:has-text("Add New User")');
+    console.log('- Clicked Add New User button');
+    
+    // Wait for the registration form to be visible
     await page.waitForSelector('form', { timeout: 5000 });
     console.log('- Found registration form');
     
     // Fill in the form fields
-    await page.fill('input[placeholder="John Doe"]', 'Test Student');
-    await page.fill('input[placeholder="john@example.com"]', 'test.student@unilorin.edu.ng');
-    await page.fill('input[name="password"]', 'test123');
+    await page.fill('input[id="firstName"]', 'Test');
+    await page.fill('input[id="lastName"]', 'Student');
+    await page.fill('input[id="email"]', 'test.student@unilorin.edu.ng');
+    await page.fill('input[id="password"]', 'test123');
+    await page.fill('input[id="confirmPassword"]', 'test123');
     
     // Click the role select trigger
-    await page.click('button[role="combobox"]');
+    await page.click('button[role="combobox"]:first-of-type');
     // Select STUDENT role
     await page.click('div[role="option"]:has-text("STUDENT")');
     
-    await page.fill('input[name="matricNumber"]', 'TEST/2024/001');
-    await page.fill('input[name="department"]', 'Computer Science');
-    await page.fill('input[name="faculty"]', 'Science');
+    // Select faculty
+    await page.click('button[role="combobox"]:nth-of-type(2)');
+    await page.click('div[role="option"]:has-text("Faculty of Engineering")');
+    
+    // Select department
+    await page.click('button[role="combobox"]:nth-of-type(3)');
+    await page.click('div[role="option"]:has-text("Computer Engineering")');
+    
+    await page.fill('input[id="matricNumber"]', 'TEST/2024/001');
+    
+    // Select device (if available)
+    await page.click('button[role="combobox"]:last-of-type');
+    await page.click('div[role="option"]:first-of-type');
+    
     console.log('- Filled registration form');
     
-    // Skip hardware-dependent fields (fingerprint and RFID)
-    console.log('- Skipping hardware-dependent fields (fingerprint and RFID)');
-    
     // Submit the form
-    await page.click('button:has-text("Create User")');
+    await page.click('button:has-text("Save & Continue to Biometric")');
     console.log('- Submitted registration form');
     
-    // Wait for success toast and navigation
+    // Wait for success toast and navigation to biometric step
     await Promise.race([
       page.waitForSelector('[data-sonner-toast]', { timeout: 10000 }),
-      page.waitForURL('http://localhost:3000/admin/users')
+      page.waitForSelector('button:has-text("Scan Fingerprint")', { timeout: 10000 })
     ]);
     console.log('User registration successful!\n');
 

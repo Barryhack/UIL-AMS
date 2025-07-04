@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 
@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const justification = await prisma.absenceJustification.findUnique({
+    const justification = await prisma.justification.findUnique({
       where: {
         id: params.id,
       },
@@ -92,7 +92,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 })
     }
 
-    const justification = await prisma.absenceJustification.findUnique({
+    const justification = await prisma.justification.findUnique({
       where: {
         id: params.id,
       },
@@ -124,7 +124,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const validatedData = updateStatusSchema.parse(body)
 
     // Update the justification
-    const updatedJustification = await prisma.absenceJustification.update({
+    const updatedJustification = await prisma.justification.update({
       where: {
         id: params.id,
       },
@@ -170,8 +170,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     await prisma.auditLog.create({
       data: {
         action: "JUSTIFICATION_UPDATED",
-        details: `Justification ${params.id} updated to ${validatedData.status} by ${session.user.id}`,
+        details: `Justification ${params.id} updated by ${session.user.id}`,
         userId: session.user.id,
+        entity: "Justification",
       },
     })
 

@@ -35,7 +35,7 @@ export default async function DevicesPage() {
         }
       }
     }
-  }) as DeviceWithRelations[]
+  }) as (DeviceWithRelations & { status: "ACTIVE" | "INACTIVE" | "MAINTENANCE" })[]
 
   return (
     <div className="container py-6">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 
@@ -133,9 +133,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     // Log the session update
     await prisma.auditLog.create({
       data: {
-        action: "ATTENDANCE_SESSION_UPDATED",
-        details: `Session ${updatedSession.id} updated by ${session.user.id}`,
+        action: "ATTENDANCE_UPDATED",
+        details: `Attendance record ${params.id} updated`,
         userId: session.user.id,
+        entity: "AttendanceRecord",
       },
     })
 

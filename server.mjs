@@ -1,158 +1,122 @@
-import { createServer } from 'http';
+import { createServer as createHttpServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import { parse } from 'url';
 import next from 'next';
-import { WebSocketServer } from 'ws';
-import { execSync } from 'child_process';
+import { WebSocketServer, WebSocket } from 'ws';
+import fs from 'fs';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';  // Listen on all network interfaces
-const port = process.env.PORT || 3000;
-
-// Run database migration if in production
-if (process.env.NODE_ENV === 'production') {
-  try {
-    console.log('Running database migration...');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-    console.log('Database migration completed successfully');
-  } catch (error) {
-    console.error('Database migration failed:', error.message);
-    console.log('Continuing without migration...');
-  }
-}
-
-// Prepare Next.js app
-const app = next({ dev, hostname, port });
+const app = next({ dev });
 const handle = app.getRequestHandler();
 
+const port = 3000;
+const hostname = 'localhost';
+
+// --- SSL Options ---
+// In a real production environment, you would use professionally signed certs.
+// For local dev, we use the self-signed ones we just generated.
+const sslOptions = {
+  key: fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem'),
+};
+
 app.prepare().then(() => {
-  // Create HTTP server
-  const server = createServer(async (req, res) => {
-    try {
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
-    } catch (err) {
-      console.error('Error occurred handling', req.url, err);
-      res.statusCode = 500;
-      res.end('Internal Server Error');
-    }
+  // --- HTTPS Server for the Next.js App (Port 3000) ---
+  createHttpsServer(sslOptions, (req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
+  }).listen(port, '0.0.0.0', (err) => {
+    if (err) throw err;
+    console.log(`> Ready on https://0.0.0.0:${port}`);
   });
 
-  // Initialize WebSocket server with specific options for ESP32
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/api/ws',
-    perMessageDeflate: false,  // Disable compression for ESP32
-    maxPayload: 65536,        // Reasonable max payload size
-    skipUTF8Validation: true  // Be more permissive with message encoding
-  });
-  
-  wss.on('connection', (ws, request) => {
-    console.log('Headers:', request.headers); // Log all headers for debugging
-    console.log('New WebSocket connection');
-    
-    // Get device information from headers
-    const deviceId = request.headers['x-device-id'];
-    const macAddress = request.headers['x-mac-address'];
-    const apiKey = request.headers['x-api-key'];
-    
-    // Validate headers - use environment variable for API key in production
-    const expectedApiKey = process.env.HARDWARE_API_KEY || 'local-development-key';
-    if (!deviceId || !macAddress || apiKey !== expectedApiKey) {
-      console.log('Invalid headers, closing connection');
-      ws.close();
-      return;
-    }
+  const deviceClients = new Map();
+  const webClients = new Set();
 
-    console.log(`Device connected: ${deviceId} (${macAddress})`);
+  // --- WSS (Secure) WebSocket Server for Web App (Port 4010) ---
+  const wsServerSecure = createHttpsServer(sslOptions);
+  const wss = new WebSocketServer({ server: wsServerSecure, path: '/api/ws' });
 
-    // Send welcome message
-    ws.send(JSON.stringify({
-      type: 'welcome',
-      message: 'Connected to UNILORIN AMS WebSocket server',
-      timestamp: new Date().toISOString()
-    }));
+  wss.on('connection', (ws, req) => {
+    console.log('Web client connected (wss)');
+    webClients.add(ws);
 
-    // Handle incoming messages
-    ws.on('message', (data) => {
+    ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to UNILORIN AMS WebSocket server (web)' }));
+
+    ws.on('message', (message) => {
       try {
-        const message = JSON.parse(data.toString());
-        console.log('Received:', message);
+        const parsedMessage = JSON.parse(message.toString());
+        console.log('Message from web client:', parsedMessage);
 
-        // Handle different message types
-        switch (message.type) {
-          case 'hello':
-            console.log(`Hello from device: ${deviceId}`);
-            break;
-          case 'device_info':
-            console.log(`Device info from ${deviceId}: ${JSON.stringify(message)}`);
-            ws.send(JSON.stringify({
-              type: 'device_info_ack',
-              message: 'Device info received',
-              timestamp: new Date().toISOString()
-            }));
-            break;
-          case 'rfid_scan':
-            console.log(`RFID scan from device ${deviceId}: ${message.uid}`);
-            ws.send(JSON.stringify({
-              type: 'scan_received',
-              uid: message.uid,
-              timestamp: new Date().toISOString()
-            }));
-            break;
-          default:
-            console.log(`Unknown message type: ${message.type}`);
+        // Try to get deviceId from data object first, then from message root
+        const targetDeviceId = parsedMessage.data?.deviceId || parsedMessage.deviceId || 'UNILORIN_AMS_1';
+        
+        if (deviceClients.has(targetDeviceId)) {
+          const hardwareSocket = deviceClients.get(targetDeviceId);
+          if (hardwareSocket && hardwareSocket.readyState === WebSocket.OPEN) {
+            console.log(`Forwarding command to device ${targetDeviceId}`);
+            hardwareSocket.send(JSON.stringify(parsedMessage));
+          } else {
+             console.log(`Device ${targetDeviceId} not connected or not ready.`);
+             ws.send(JSON.stringify({ type: 'error', message: `Device ${targetDeviceId} is not connected.` }));
+          }
+        } else {
+            console.log(`Command received without target deviceId or device not found.`);
+            // Optionally, handle broadcasting or erroring
         }
-      } catch (error) {
-        console.error('Error processing message:', error);
+      } catch (e) {
+        console.error('Failed to parse or forward message from web client:', e);
       }
     });
 
-    // Handle client disconnect
     ws.on('close', () => {
-      console.log(`Device disconnected: ${deviceId}`);
-    });
-
-    // Setup ping-pong with longer interval for ESP32
-    ws.isAlive = true;
-    ws.on('pong', () => {
-      ws.isAlive = true;
+      webClients.delete(ws);
+      console.log('Web client disconnected (wss)');
     });
   });
 
-  // Ping all clients every 30 seconds
-  const interval = setInterval(() => {
-    wss.clients.forEach((ws) => {
-      if (ws.isAlive === false) {
-        return ws.terminate();
-      }
-      ws.isAlive = false;
-      ws.ping();
+  wsServerSecure.listen(4010, '0.0.0.0', () => {
+    console.log(`> Secure WebSocket Server (WSS) ready on wss://0.0.0.0:4010/api/ws`);
+  });
+
+  // --- WS (Insecure) WebSocket Server for Hardware (Port 4011) ---
+  const wsServerInsecure = createHttpServer();
+  const wsHardware = new WebSocketServer({ server: wsServerInsecure, path: '/api/ws' });
+
+  wsHardware.on('connection', (ws, req) => {
+    console.log('Hardware connection attempt, URL:', req.url);
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const deviceId = url.searchParams.get('deviceId');
+    console.log('Extracted deviceId:', deviceId);
+    
+    if (!deviceId) {
+        console.log('Hardware connection rejected: missing deviceId');
+        ws.terminate();
+        return;
+    }
+    
+    deviceClients.set(deviceId, ws);
+    console.log(`Hardware device connected: ${deviceId} (ws)`);
+
+    ws.send(JSON.stringify({ type: 'welcome', message: `Connected to UNILORIN AMS WebSocket server (device: ${deviceId})` }));
+    
+    // Forward messages from hardware to all web clients
+    ws.on('message', (message) => {
+        console.log(`Message from hardware ${deviceId}: ${message}`);
+        for (const client of webClients) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(message.toString());
+          }
+        }
     });
-  }, 30000);
 
-  // Clean up on server close
-  wss.on('close', () => {
-    clearInterval(interval);
+    ws.on('close', () => {
+        deviceClients.delete(deviceId);
+        console.log(`Hardware device disconnected: ${deviceId} (ws)`);
+    });
   });
 
-  // Listen on all network interfaces
-  server.listen(port, hostname, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
-    console.log(`> WebSocket server is running on ws://${hostname}:${port}/api/ws`);
-    console.log(`> Environment: ${process.env.NODE_ENV}`);
-    console.log(`> Database URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
-  });
-
-  // Add error handling
-  server.on('error', (error) => {
-    console.error('Server error:', error);
-  });
-
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-  });
-
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  wsServerInsecure.listen(4011, '0.0.0.0', () => {
+    console.log(`> Insecure WebSocket Server (WS) ready on ws://0.0.0.0:4011/api/ws`);
   });
 }); 

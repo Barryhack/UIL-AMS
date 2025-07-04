@@ -52,25 +52,33 @@ class WebSocketHandler {
       const deviceId = request.headers['x-device-id'] as string
       const macAddress = request.headers['x-mac-address'] as string
       
-      if (!deviceId || !macAddress) {
+      // Allow web clients (no headers) to connect, but require both headers for hardware
+      const isWebClient = !deviceId && !macAddress
+      if (!isWebClient && (!deviceId || !macAddress)) {
         console.log('Missing device information, closing connection')
         ws.close()
         return
       }
 
-      // Set device information and mark as alive
+      // Set device information and mark as alive (for hardware clients)
       ws.deviceId = deviceId
       ws.macAddress = macAddress
       ws.isAlive = true
 
       // Add to clients set
       this.clients.add(ws)
-      console.log(`Device connected: ${deviceId} (${macAddress})`)
+      if (isWebClient) {
+        console.log('Web client connected (wss)')
+      } else {
+        console.log(`Device connected: ${deviceId} (${macAddress})`)
+      }
 
       // Send welcome message
       ws.send(JSON.stringify({
         type: 'welcome',
-        message: 'Connected to UNILORIN AMS WebSocket server',
+        message: isWebClient
+          ? 'Connected to UNILORIN AMS WebSocket server (web)'
+          : 'Connected to UNILORIN AMS WebSocket server',
         timestamp: new Date().toISOString()
       }))
 
@@ -80,10 +88,29 @@ class WebSocketHandler {
           const message = JSON.parse(data.toString())
           console.log('Received:', message)
 
+          // Handle web client device commands
+          if (message.type === 'device_command' && message.deviceId) {
+            // Find the target device WebSocket
+            const target = Array.from(this.clients).find(
+              client => client.deviceId === message.deviceId && client.readyState === WebSocket.OPEN
+            );
+            if (target) {
+              // Forward the command to the device
+              target.send(JSON.stringify(message));
+              ws.send(JSON.stringify({ type: 'ack', message: 'Command forwarded to device.' }));
+            } else {
+              ws.send(JSON.stringify({ type: 'error', message: 'Target device not found or not connected.' }));
+            }
+            return; // Don't process further
+          }
+
           // Handle different message types
           switch (message.type) {
             case 'rfid_scan':
               this.handleRFIDScan(ws, message)
+              break
+            case 'attendance':
+              this.handleAttendance(ws, message)
               break
             case 'hello':
               // Just log the hello message
@@ -144,6 +171,45 @@ class WebSocketHandler {
     // For example, update attendance records in the database
   }
 
+  private async handleAttendance(ws: ExtendedWebSocket, message: any) {
+    try {
+      const { deviceId, data } = message;
+      if (!deviceId || !data) {
+        ws.send(JSON.stringify({
+          type: 'attendance_ack',
+          success: false,
+          error: 'Missing deviceId or data in attendance message',
+        }))
+        return;
+      }
+      // Store attendance record in the database
+      const record = await prisma.attendanceRecord.create({
+        data: {
+          ...data,
+          deviceId,
+        }
+      })
+      ws.send(JSON.stringify({
+        type: 'attendance_ack',
+        success: true,
+        record,
+      }))
+      console.log(`Attendance recorded from device ${deviceId}:`, record)
+      // Broadcast to all clients (web clients included)
+      this.broadcast({
+        type: 'attendance_update',
+        record,
+      })
+    } catch (error: any) {
+      console.error('Error handling attendance message:', error)
+      ws.send(JSON.stringify({
+        type: 'attendance_ack',
+        success: false,
+        error: error.message || 'Failed to record attendance',
+      }))
+    }
+  }
+
   public broadcast(message: any) {
     this.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
@@ -169,7 +235,7 @@ class WebSocketHandler {
   }
 }
 
-export default WebSocketHandler
+export default WebSocketHandler 
 
 // Export the broadcastToDevices function for use in API routes
 export const broadcastToDevices = (message: any) => {

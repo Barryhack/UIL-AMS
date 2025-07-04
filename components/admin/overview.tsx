@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Users, BookOpen, Fingerprint, Activity } from "lucide-react"
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts"
-import { UserRole } from "@prisma/client"
 
 export function Overview() {
   const [stats, setStats] = useState({
@@ -13,6 +15,7 @@ export function Overview() {
     totalDevices: 0,
     recentRegistrations: [],
     attendanceStats: [],
+    totalEnrollments: 0,
   })
 
   const fetchStats = async () => {
@@ -32,7 +35,7 @@ export function Overview() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -74,6 +77,17 @@ export function Overview() {
             <div className="text-2xl font-bold">{stats.totalDevices}</div>
             <p className="text-xs text-muted-foreground">
               Connected and operational
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Enrollments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalEnrollments}</div>
+            <p className="text-xs text-muted-foreground">
+              Students enrolled in courses
             </p>
           </CardContent>
         </Card>
@@ -131,7 +145,7 @@ export function Overview() {
                       {registration.name}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {registration.role === UserRole.STUDENT
+                      {registration.role === "STUDENT"
                         ? `Student - ${registration.matricNumber}`
                         : `Lecturer - ${registration.department}`}
                     </p>

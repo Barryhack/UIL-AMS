@@ -78,13 +78,10 @@ export async function POST(request: Request) {
       // Log the registration event
       await tx.auditLog.create({
         data: {
-          action: "USER_REGISTRATION",
+          action: "HARDWARE_REGISTERED",
+          details: `Hardware registered for user ${user.id}`,
+          userId: userId,
           entity: "User",
-          entityId: userId,
-          details: `Registered with ${fingerprintData ? "fingerprint" : ""} ${
-            rfidTagId ? "and RFID" : ""
-          }`,
-          severity: "INFO",
         },
       })
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcrypt"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 import { z } from "zod"
@@ -15,6 +15,7 @@ const userSchema = z.object({
   staffId: z.string().optional(),
   department: z.string().optional(),
   faculty: z.string().optional(),
+  deviceId: z.string().optional(),
 })
 
 export async function GET(req: Request) {
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
       data: {
         ...validatedData,
         password: hashedPassword,
+        deviceId: validatedData.deviceId,
       },
       select: {
         id: true,
@@ -101,6 +103,7 @@ export async function POST(req: Request) {
         staffId: true,
         faculty: true,
         department: true,
+        deviceId: true,
       }
     })
 

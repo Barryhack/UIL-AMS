@@ -23,6 +23,8 @@ export default async function UsersPage() {
       matricNumber: true,
       department: true,
       createdAt: true,
+      fingerprintId: true,
+      rfidUid: true,
     }
   })
 

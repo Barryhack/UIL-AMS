@@ -43,8 +43,9 @@ export async function POST(req: NextRequest) {
     // Create audit log
     await createAuditLog({
       action: "DEVICE_VERIFICATION",
-      details: `User ${user.id} verified at device ${deviceId}`,
+      details: `Device verification completed for user ${user.id}`,
       userId: user.id,
+      entity: "USER",
     })
 
     return NextResponse.json({

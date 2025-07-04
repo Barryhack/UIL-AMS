@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Chart } from "@/components/admin/charts"
+import { Chart } from "@/app/components/admin/charts"
 import { 
   Users, 
   BookOpen, 

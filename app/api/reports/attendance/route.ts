@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { executeQuery } from "@/lib/db"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/db"
 

@@ -7,11 +7,15 @@ interface Course {
   id: string
   code: string
   title: string
-  schedule: string | null
-  venue: string | null
   lecturer: {
     name: string
   }
+  schedules: {
+    day: string
+    startTime: string
+    endTime: string
+    venue: string
+  }[]
 }
 
 export default async function SchedulePage() {
@@ -30,15 +34,16 @@ export default async function SchedulePage() {
       }
     },
     include: {
-      lecturer: true
+      lecturer: true,
+      schedules: true
     }
-  }) as Course[]
+  })
 
   // Group courses by day of the week
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
   const scheduleByDay = days.map(day => ({
     day,
-    courses: courses.filter(course => course.schedule?.includes(day))
+    courses: courses.filter(course => course.schedules.some(schedule => schedule.day === day))
   }))
 
   return (
@@ -62,8 +67,8 @@ export default async function SchedulePage() {
                       <p className="text-sm text-muted-foreground">Lecturer: {course.lecturer.name}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{course.schedule?.split(day)[1].trim()}</p>
-                      <p className="text-sm text-muted-foreground">{course.venue || "TBA"}</p>
+                      <p className="font-medium">{course.schedules.find(schedule => schedule.day === day)?.startTime} - {course.schedules.find(schedule => schedule.day === day)?.endTime}</p>
+                      <p className="text-sm text-muted-foreground">{course.schedules.find(schedule => schedule.day === day)?.venue || "TBA"}</p>
                     </div>
                   </div>
                 ))}

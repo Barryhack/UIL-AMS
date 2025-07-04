@@ -68,11 +68,23 @@ export function SessionList({ initialSessions }: SessionListProps) {
     const fetchSessions = async () => {
       try {
         const response = await fetch("/api/attendance/sessions")
-        if (!response.ok) throw new Error("Failed to fetch sessions")
+        if (!response.ok) {
+          // If response is not ok, don't try to parse as JSON
+          // It might be a redirect to login page (HTML)
+          console.error("Failed to fetch sessions, status:", response.status)
+          if (response.status === 401) {
+             toast.error("You are not authenticated. Please log in.");
+             // Optionally redirect to login
+             // router.push('/auth/login');
+          }
+          return; // Stop execution
+        }
         const data = await response.json()
         setSessions(data)
       } catch (error) {
         console.error("Error fetching sessions:", error)
+        // This will now only catch network errors or actual JSON parsing errors
+        // on valid (2xx) responses that have malformed JSON.
       }
     }
 

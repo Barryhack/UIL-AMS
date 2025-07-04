@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 
@@ -157,6 +157,7 @@ export async function POST(req: Request) {
         action: "ATTENDANCE_SESSION_CREATED",
         details: `Session ${attendanceSession.id} created by ${session.user.id}`,
         userId: session.user.id,
+        entity: "AttendanceSession",
       },
     })
 

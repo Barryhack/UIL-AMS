@@ -105,7 +105,7 @@ export function EnrollmentSimulator({ userId, userName, onComplete, onCancel }: 
       </CardHeader>
       <CardContent className="space-y-6">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="danger">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>

@@ -16,9 +16,9 @@ interface Student {
   id: string
   name: string
   email: string
-  matricNumber: string
-  department: string
-  level: string
+  matricNumber: string | null
+  department: string | null
+  faculty: string | null
   phone?: string | null
   enrollments: {
     course: {
@@ -35,9 +35,10 @@ export default async function ProfilePage() {
     return null
   }
 
-  const student = await prisma.student.findUnique({
+  const student = await prisma.user.findUnique({
     where: {
-      id: session.user.id
+      id: session.user.id,
+      role: "STUDENT"
     },
     include: {
       enrollments: {
@@ -51,7 +52,7 @@ export default async function ProfilePage() {
         }
       }
     }
-  }) as Student
+  })
 
   if (!student) {
     return null
@@ -86,7 +87,7 @@ export default async function ProfilePage() {
               <Phone className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Phone</p>
-                <p className="font-medium">{student.phone || "Not provided"}</p>
+                <p className="font-medium">Not provided</p>
               </div>
             </div>
           </div>
@@ -112,8 +113,8 @@ export default async function ProfilePage() {
             <div className="flex items-center gap-3">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Level</p>
-                <p className="font-medium">{student.level}</p>
+                <p className="text-sm text-muted-foreground">Faculty</p>
+                <p className="font-medium">{student.faculty || "Not specified"}</p>
               </div>
             </div>
           </div>

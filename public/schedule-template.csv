@@ -1,0 +1,6 @@
+CourseCode,Day,StartTime,EndTime,Venue
+CSC 101,Monday,09:00,10:00,LT1
+MAT 101,Tuesday,10:00,11:00,LT2
+PHY 101,Wednesday,11:00,12:00,LT3
+CHE 101,Thursday,13:00,14:00,LT4
+BIO 101,Friday,14:00,15:00,LT5 

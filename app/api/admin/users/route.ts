@@ -133,6 +133,9 @@ export async function GET(req: Request) {
         staffId: true,
         faculty: true,
         department: true,
+        matricNumber: true,
+        fingerprintId: true,
+        rfidUid: true,
       },
       orderBy: {
         name: "asc",
@@ -146,5 +149,29 @@ export async function GET(req: Request) {
       { error: "Internal server error" },
       { status: 500 }
     )
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.role || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const userId = searchParams.get("id")
+    if (!userId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    }
+
+    await prisma.user.delete({
+      where: { id: userId }
+    })
+
+    return NextResponse.json({ success: true, message: "User deleted successfully" })
+  } catch (error) {
+    console.error("Error in DELETE /api/admin/users:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

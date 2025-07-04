@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete All Fingerprints (Secure)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .info {
+            color: #007bff;
+        }
+        .warning {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Delete All Fingerprints (Secure)</h1>
+        <p class="info">🔒 Using secure WebSocket connection (wss://) to web server</p>
+        <p>This will delete all fingerprint templates stored on the hardware device.</p>
+        
+        <button id="deleteBtn" onclick="deleteAllFingerprints()">
+            🗑️ Delete All Fingerprints
+        </button>
+        
+        <button id="countBtn" onclick="getFingerprintCount()">
+            📊 Get Fingerprint Count
+        </button>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        const logElement = document.getElementById('log');
+        const deleteBtn = document.getElementById('deleteBtn');
+        const countBtn = document.getElementById('countBtn');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function connectWebSocket() {
+            return new Promise((resolve, reject) => {
+                log('Connecting to secure WebSocket server...', 'info');
+                
+                // Use wss:// to connect to the web server that will relay to devices
+                ws = new WebSocket('wss://192.168.60.118:4010/api/ws');
+                
+                ws.onopen = () => {
+                    log('✅ Connected to secure WebSocket server', 'success');
+                    resolve();
+                };
+                
+                ws.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    log(`📨 Received: ${JSON.stringify(message)}`, 'info');
+                    
+                    if (message.type === 'delete_result') {
+                        if (message.success) {
+                            log('✅ All fingerprint templates deleted successfully!', 'success');
+                        } else {
+                            log(`❌ Failed to delete: ${message.error}`, 'error');
+                        }
+                    } else if (message.type === 'template_count') {
+                        log(`📊 Fingerprint templates: ${message.count}`, 'success');
+                    } else if (message.type === 'relay_ack') {
+                        log('📤 Command relayed to hardware device', 'info');
+                    } else if (message.type === 'error') {
+                        log(`❌ Server error: ${message.message}`, 'error');
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                    console.error('WebSocket error details:', error);
+                    reject(error);
+                };
+                
+                ws.onclose = (event) => {
+                    log(`🔌 WebSocket connection closed (code: ${event.code}, reason: ${event.reason})`, 'info');
+                };
+                
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (ws.readyState !== WebSocket.OPEN) {
+                        reject(new Error('Connection timeout'));
+                    }
+                }, 10000);
+            });
+        }
+
+        async function deleteAllFingerprints() {
+            try {
+                deleteBtn.disabled = true;
+                countBtn.disabled = true;
+                
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    await connectWebSocket();
+                }
+                
+                log('🗑️ Sending delete all fingerprints command...', 'info');
+                
+                const deleteCommand = {
+                    command: 'fingerprint',
+                    action: 'delete_all'
+                };
+                
+                ws.send(JSON.stringify(deleteCommand));
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                deleteBtn.disabled = false;
+                countBtn.disabled = false;
+            }
+        }
+
+        async function getFingerprintCount() {
+            try {
+                deleteBtn.disabled = true;
+                countBtn.disabled = true;
+                
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    await connectWebSocket();
+                }
+                
+                log('📊 Requesting fingerprint count...', 'info');
+                
+                const countCommand = {
+                    command: 'fingerprint',
+                    action: 'count'
+                };
+                
+                ws.send(JSON.stringify(countCommand));
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                deleteBtn.disabled = false;
+                countBtn.disabled = false;
+            }
+        }
+
+        // Auto-connect when page loads
+        window.onload = async () => {
+            try {
+                await connectWebSocket();
+            } catch (error) {
+                log(`❌ Failed to connect: ${error.message}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html> 
