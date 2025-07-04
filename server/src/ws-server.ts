@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import http from 'http'
+import http, { IncomingMessage } from 'http'
 import https from 'https'
 import fs from 'fs'
 
@@ -21,7 +21,7 @@ if (CERT_PATH && KEY_PATH) {
   }
 }
 
-interface ExtendedWebSocket extends WebSocket {
+type ExtendedWebSocket = WebSocket & {
   deviceId?: string
   macAddress?: string
   isAlive?: boolean
@@ -31,7 +31,7 @@ const clients = new Set<ExtendedWebSocket>()
 
 function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
   const wss = new WebSocketServer({ server })
-  wss.on('connection', (ws: ExtendedWebSocket, req) => {
+  wss.on('connection', (ws: ExtendedWebSocket, req: IncomingMessage) => {
     // Identify client type
     const deviceId = req.headers['x-device-id'] as string
     const macAddress = req.headers['x-mac-address'] as string
