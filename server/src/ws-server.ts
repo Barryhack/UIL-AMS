@@ -2,23 +2,23 @@ import { WebSocketServer, WebSocket } from 'ws'
 import http from 'http'
 import https from 'https'
 import fs from 'fs'
-import path from 'path'
 
-// Load environment variables
-const PORT_WS = process.env.WS_PORT || 4011 // Insecure (hardware)
-const PORT_WSS = process.env.WSS_PORT || 4010 // Secure (web clients)
-const CERT_PATH = process.env.SSL_CERT_PATH || path.join(__dirname, '../../certs/cert.pem')
-const KEY_PATH = process.env.SSL_KEY_PATH || path.join(__dirname, '../../certs/key.pem')
+// Render sets PORT automatically
+const PORT = process.env.PORT || 10000
+const CERT_PATH = process.env.SSL_CERT_PATH
+const KEY_PATH = process.env.SSL_KEY_PATH
 
-// Load SSL certs for WSS
-let sslOptions = undefined
-try {
-  sslOptions = {
-    cert: fs.readFileSync(CERT_PATH),
-    key: fs.readFileSync(KEY_PATH),
+// Try to load SSL certs for WSS
+let sslOptions: { cert: Buffer; key: Buffer } | undefined = undefined
+if (CERT_PATH && KEY_PATH) {
+  try {
+    sslOptions = {
+      cert: fs.readFileSync(CERT_PATH),
+      key: fs.readFileSync(KEY_PATH),
+    }
+  } catch (err) {
+    console.warn('SSL certs not found or invalid, falling back to WS.')
   }
-} catch (err) {
-  console.warn('SSL certs not found or invalid, WSS will not start.')
 }
 
 interface ExtendedWebSocket extends WebSocket {
@@ -44,7 +44,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     ws.macAddress = macAddress
     ws.isAlive = true
     clients.add(ws)
-    console.log(isWebClient ? 'Web client connected (wss)' : `Device connected: ${deviceId} (${macAddress})`)
+    console.log(isWebClient ? 'Web client connected (wss/ws)' : `Device connected: ${deviceId} (${macAddress})`)
     ws.send(JSON.stringify({
       type: 'welcome',
       message: isWebClient ? 'Connected to UNILORIN AMS WebSocket server (web)' : 'Connected to UNILORIN AMS WebSocket server',
@@ -86,20 +86,19 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
   return wss
 }
 
-// Start insecure WS server (hardware)
-const httpServer = http.createServer()
-setupWSServer(httpServer, false)
-httpServer.listen(PORT_WS, () => {
-  console.log(`Insecure WebSocket Server (WS) ready on ws://0.0.0.0:${PORT_WS}/api/ws`)
-})
-
-// Start secure WSS server (web clients)
+// Start server (WSS if certs, else WS)
 if (sslOptions) {
   const httpsServer = https.createServer(sslOptions)
   setupWSServer(httpsServer, true)
-  httpsServer.listen(PORT_WSS, () => {
-    console.log(`Secure WebSocket Server (WSS) ready on wss://0.0.0.0:${PORT_WSS}/api/ws`)
+  httpsServer.listen(PORT, () => {
+    console.log(`Secure WebSocket Server (WSS) ready on wss://0.0.0.0:${PORT}/api/ws`)
   })
 } else {
-  console.warn('WSS server not started: SSL certs missing.')
-} 
+  const httpServer = http.createServer()
+  setupWSServer(httpServer, false)
+  httpServer.listen(PORT, () => {
+    console.log(`Insecure WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`)
+  })
+}
+
+// For Render: expose only one port per service. Deploy separate services for WSS and WS if needed. 
