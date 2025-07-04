@@ -67,7 +67,7 @@ const unsigned long syncInterval = 300000; // 5 minutes
 WebsocketsClient wsClient;
 String deviceIdStr = "";
 String macAddressStr = "";
-const char* wsServer = "ws://192.168.249.118:4011/api/ws";
+const char* wsServer = "wss://websocket-usjg.onrender.com/api/ws";
 const char* wsApiKey = "local-development-key";
 
 // Session management

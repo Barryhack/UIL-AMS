@@ -2,7 +2,15 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 
 export async function GET() {
+  console.log("[Hardware Sync] Request received")
+  
   try {
+    console.log("[Hardware Sync] Connecting to database...")
+    
+    // Test database connection first
+    await prisma.$connect()
+    console.log("[Hardware Sync] Database connected successfully")
+    
     // Get all courses with enrollments
     const courses = await prisma.course.findMany({
       include: {
@@ -23,6 +31,8 @@ export async function GET() {
       }
     })
 
+    console.log(`[Hardware Sync] Found ${courses.length} courses`)
+
     // Get all users with biometric data
     const users = await prisma.user.findMany({
       select: {
@@ -34,6 +44,8 @@ export async function GET() {
         rfidUid: true,
       }
     })
+
+    console.log(`[Hardware Sync] Found ${users.length} users`)
 
     // Format data for hardware sync
     const syncData = {
@@ -59,12 +71,19 @@ export async function GET() {
       timestamp: new Date().toISOString()
     }
 
+    console.log("[Hardware Sync] Sending response")
     return NextResponse.json(syncData)
   } catch (error) {
-    console.error("Error in hardware sync:", error)
+    console.error("[Hardware Sync] Error:", error)
     return NextResponse.json(
-      { error: "Failed to sync data" },
+      { 
+        error: "Failed to sync data", 
+        details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect()
   }
 } 
