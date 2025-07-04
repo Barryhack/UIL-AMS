@@ -107,4 +107,6 @@ if (sslOptions) {
   const httpServer = http.createServer(createHealthCheckHandler())
   setupWSServer(httpServer, false)
   httpServer.listen(PORT, () => {
-    console.log(`
+    console.log(`Insecure WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`);
+  })
+}
