@@ -68,17 +68,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Device ID is required' }, { status: 400 })
     }
 
-    // Get recent commands for the device
+    // Get pending commands for this device
     const commands = await prisma.deviceCommand.findMany({
-      where: { deviceId },
-      orderBy: { createdAt: 'desc' },
-      take: 10
+      where: {
+        deviceId: deviceId,
+        status: 'pending'
+      },
+      orderBy: {
+        createdAt: 'asc'
+      },
+      take: 10 // Limit to 10 commands at a time
     })
 
-    return NextResponse.json({ commands })
+    // Mark commands as processed
+    if (commands.length > 0) {
+      await prisma.deviceCommand.updateMany({
+        where: {
+          id: {
+            in: commands.map(cmd => cmd.id)
+          }
+        },
+        data: {
+          status: 'PROCESSED',
+          completedAt: new Date()
+        }
+      })
+    }
+
+    return NextResponse.json({
+      commands: commands.map(cmd => ({
+        id: cmd.id,
+        type: cmd.type,
+        parameters: cmd.parameters,
+        createdAt: cmd.createdAt
+      }))
+    })
 
   } catch (error) {
     console.error('Error fetching device commands:', error)
-    return NextResponse.json({ error: 'Failed to fetch device commands' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

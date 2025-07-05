@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .messages { background-color: #f8f9fa; padding: 10px; border-radius: 5px; height: 300px; overflow-y: auto; }
+        .message { margin: 5px 0; padding: 5px; border-bottom: 1px solid #eee; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔌 WebSocket Connection Test</h1>
+    <div id="status" class="status connecting">🔄 Connecting to WebSocket server...</div>
+    
+    <div>
+        <button onclick="connect()">🔄 Reconnect</button>
+        <button onclick="sendTestMessage()">📤 Send Test Message</button>
+        <button onclick="clearMessages()">🗑️ Clear Messages</button>
+    </div>
+    
+    <h3>📨 Messages:</h3>
+    <div id="messages" class="messages"></div>
+
+    <script>
+        let ws = null;
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        function connect() {
+            // Close existing connection
+            if (ws) {
+                ws.close();
+            }
+            
+            updateStatus('🔄 Connecting to WebSocket server...', 'connecting');
+            addMessage('Attempting to connect...');
+            
+            // Try to connect to the WebSocket server
+            try {
+                ws = new WebSocket('wss://unilorin-ams-ws-server.onrender.com/?deviceId=UNILORIN_AMS_1');
+                
+                ws.onopen = function(event) {
+                    updateStatus('✅ Connected to WebSocket server!', 'connected');
+                    addMessage('🎉 Connection established successfully!');
+                    addMessage('WebSocket URL: wss://unilorin-ams-ws-server.onrender.com/?deviceId=UNILORIN_AMS_1');
+                };
+                
+                ws.onmessage = function(event) {
+                    addMessage('📨 Received: ' + event.data);
+                };
+                
+                ws.onclose = function(event) {
+                    updateStatus('❌ WebSocket connection closed', 'error');
+                    addMessage('🔴 Connection closed - Code: ' + event.code + ', Reason: ' + event.reason);
+                    
+                    if (event.code === 1006) {
+                        addMessage('⚠️ Connection closed abnormally (code 1006) - This often indicates the server rejected the connection');
+                    }
+                };
+                
+                ws.onerror = function(error) {
+                    updateStatus('❌ WebSocket connection error', 'error');
+                    addMessage('🚨 Connection error occurred');
+                    console.error('WebSocket error:', error);
+                };
+                
+            } catch (error) {
+                updateStatus('❌ Failed to create WebSocket connection', 'error');
+                addMessage('🚨 Error creating WebSocket: ' + error.message);
+            }
+        }
+        
+        function sendTestMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const testMessage = {
+                    type: 'test',
+                    message: 'Hello from browser test!',
+                    timestamp: new Date().toISOString()
+                };
+                ws.send(JSON.stringify(testMessage));
+                addMessage('📤 Sent test message: ' + JSON.stringify(testMessage));
+            } else {
+                addMessage('⚠️ Cannot send message - WebSocket not connected');
+            }
+        }
+        
+        function clearMessages() {
+            messagesDiv.innerHTML = '';
+        }
+        
+        function updateStatus(message, className) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + className;
+        }
+        
+        function addMessage(message) {
+            const div = document.createElement('div');
+            div.className = 'message';
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Auto-connect on page load
+        connect();
+    </script>
+</body>
+</html> 

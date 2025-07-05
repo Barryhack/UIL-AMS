@@ -15,7 +15,17 @@ const publicPaths = [
   '/api/auth/verify',
   '/ping',
   '/api/ping',
-  '/api/hardware/sync'
+  '/api/hardware/sync',
+  '/api/device/commands',
+  '/api/device/attendance',
+  '/api/device/register',
+  '/api/device/status',
+  '/api/device/heartbeat',
+  '/api/device/sync',
+  '/api/device/verify',
+  '/api/device/record-attendance',
+  '/api/device/commands',
+  '/api/ws'
 ]
 
 export async function middleware(request: NextRequest) {
@@ -83,7 +93,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      * - static assets
+     * - device API routes (for ESP32 communication)
      */
-    '/((?!api/ping|api/ws|_next/static|_next/image|favicon.ico|images|assets|public).*)',
+    '/((?!api/ping|api/ws|api/device|_next/static|_next/image|favicon.ico|images|assets|public).*)',
   ],
 }
