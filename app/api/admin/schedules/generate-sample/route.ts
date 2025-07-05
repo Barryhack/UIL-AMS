@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+
 const VENUES = [
   "LT1", "LT2", "LT3", "LR1", "LR2", "CL1", "CL2", "Lab 1", "Lab 2"
 ]

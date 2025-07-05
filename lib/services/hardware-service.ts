@@ -206,4 +206,7 @@ class HardwareService extends EventEmitter {
   }
 }
 
-export const hardwareService = new HardwareService(); 
+export const hardwareService = new HardwareService();
+
+// Export a function to get the hardware service instance
+export const getHardwareService = () => hardwareService; 
