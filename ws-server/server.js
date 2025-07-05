@@ -37,12 +37,12 @@ wss.on('connection', (ws, req) => {
   console.log(`📱 Device ID: ${deviceId || 'web-client'}`);
   console.log(`🔗 MAC Address: ${macAddress || 'N/A'}`);
 
-  // Determine client type
-  if (deviceId && macAddress) {
-    // Hardware device
+  // Determine client type - accept hardware devices with just deviceId
+  if (deviceId) {
+    // Hardware device (with or without MAC address)
     connectedDevices.set(deviceId, {
       ws,
-      macAddress,
+      macAddress: macAddress || 'unknown',
       lastSeen: Date.now(),
       type: 'hardware'
     });
