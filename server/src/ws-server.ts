@@ -49,12 +49,8 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     
     console.log(`New client connected - Headers: deviceId=${deviceId}, macAddress=${macAddress}, isWebClient=${isWebClient}`)
     
-    // Send initial welcome message
-    ws.send(JSON.stringify({
-      type: 'welcome',
-      message: isWebClient ? 'Connected to UNILORIN AMS WebSocket server (web)' : 'Connected to UNILORIN AMS WebSocket server',
-      timestamp: new Date().toISOString()
-    }))
+    // Don't send welcome message immediately - wait for first message to identify client type
+    let welcomeSent = false
     
     ws.on('message', (data: string) => {
       try {
@@ -62,18 +58,30 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
         
         // Handle device identification from first message
         if (message.type === 'hello' && message.clientType === 'device') {
-          ws.deviceId = message.deviceId
-          ws.macAddress = message.macAddress
+          ws.deviceId = message.deviceId || deviceId
+          ws.macAddress = message.macAddress || macAddress
           isWebClient = false
-          console.log(`Device identified: ${message.deviceId} (${message.macAddress})`)
+          console.log(`Device identified: ${ws.deviceId} (${ws.macAddress})`)
           
           // Send device-specific welcome
           ws.send(JSON.stringify({
             type: 'welcome',
-            message: 'Connected to UNILORIN AMS WebSocket server',
+            message: 'Device connected to UNILORIN AMS WebSocket server',
             timestamp: new Date().toISOString()
           }))
+          welcomeSent = true
           return
+        }
+        
+        // If this is the first message and it's not a device hello, treat as web client
+        if (!welcomeSent) {
+          isWebClient = true
+          ws.send(JSON.stringify({
+            type: 'welcome',
+            message: 'Web client connected to UNILORIN AMS WebSocket server',
+            timestamp: new Date().toISOString()
+          }))
+          welcomeSent = true
         }
         
         // Relay device_command to hardware
