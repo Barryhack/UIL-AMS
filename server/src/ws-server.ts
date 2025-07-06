@@ -39,24 +39,43 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     // Identify client type
     const deviceId = req.headers['x-device-id'] as string
     const macAddress = req.headers['x-mac-address'] as string
-    const isWebClient = !deviceId && !macAddress
-    if (!isWebClient && (!deviceId || !macAddress)) {
-      ws.close()
-      return
-    }
+    let isWebClient = !deviceId && !macAddress
+    
+    // If headers are not available, we'll identify by the first message
     ws.deviceId = deviceId
     ws.macAddress = macAddress
     ws.isAlive = true
     clients.add(ws)
-    console.log(isWebClient ? 'Web client connected (wss/ws)' : `Device connected: ${deviceId} (${macAddress})`)
+    
+    console.log(`New client connected - Headers: deviceId=${deviceId}, macAddress=${macAddress}, isWebClient=${isWebClient}`)
+    
+    // Send initial welcome message
     ws.send(JSON.stringify({
       type: 'welcome',
       message: isWebClient ? 'Connected to UNILORIN AMS WebSocket server (web)' : 'Connected to UNILORIN AMS WebSocket server',
       timestamp: new Date().toISOString()
     }))
+    
     ws.on('message', (data: string) => {
       try {
         const message = JSON.parse(data.toString())
+        
+        // Handle device identification from first message
+        if (message.type === 'hello' && message.clientType === 'device') {
+          ws.deviceId = message.deviceId
+          ws.macAddress = message.macAddress
+          isWebClient = false
+          console.log(`Device identified: ${message.deviceId} (${message.macAddress})`)
+          
+          // Send device-specific welcome
+          ws.send(JSON.stringify({
+            type: 'welcome',
+            message: 'Connected to UNILORIN AMS WebSocket server',
+            timestamp: new Date().toISOString()
+          }))
+          return
+        }
+        
         // Relay device_command to hardware
         if (message.type === 'device_command' && message.deviceId) {
           const target = Array.from(clients).find(c => c.deviceId === message.deviceId && c.readyState === WebSocket.OPEN)
@@ -64,6 +83,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
           else ws.send(JSON.stringify({ type: 'error', message: 'Target device not found or not connected.' }))
           return
         }
+        
         // Broadcast attendance updates to all web clients
         if (message.type === 'attendance') {
           clients.forEach(client => {
