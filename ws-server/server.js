@@ -40,53 +40,42 @@ wss.on('connection', (ws, req) => {
 
   let isHardware = false;
   let thisDeviceId = deviceId;
-  if (deviceId) {
-    isHardware = true;
-    connectedDevices.set(deviceId, {
-      ws,
-      macAddress: macAddress || 'unknown',
-      lastSeen: Date.now(),
-      type: 'hardware'
-    });
-    console.log(`✅ Hardware device ${deviceId} connected`);
-    ws.send(JSON.stringify({
-      type: 'connection',
-      status: 'connected',
-      message: 'Hardware device connected successfully'
-    }));
-  } else {
-    webClients.add(ws);
-    console.log(`🌐 Web client connected (total: ${webClients.size})`);
-    ws.send(JSON.stringify({
-      type: 'connection',
-      status: 'connected',
-      message: 'Web client connected successfully'
-    }));
-  }
+  let welcomeSent = false;
 
-  // Handle messages
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
       console.log(`📨 Received message:`, data);
-      if (!isHardware && data.type === 'hello' && data.clientType === 'device' && data.deviceId) {
-        isHardware = true;
-        thisDeviceId = data.deviceId;
-        connectedDevices.set(thisDeviceId, {
-          ws,
-          macAddress: data.macAddress || 'unknown',
-          lastSeen: Date.now(),
-          type: 'hardware'
-        });
-        webClients.delete(ws);
-        console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
-        ws.send(JSON.stringify({
-          type: 'connection',
-          status: 'connected',
-          message: 'Hardware device connected successfully (by hello)'
-        }));
+      if (!welcomeSent) {
+        if (data.type === 'hello' && data.clientType === 'device' && data.deviceId) {
+          isHardware = true;
+          thisDeviceId = data.deviceId;
+          connectedDevices.set(thisDeviceId, {
+            ws,
+            macAddress: data.macAddress || 'unknown',
+            lastSeen: Date.now(),
+            type: 'hardware'
+          });
+          webClients.delete(ws);
+          console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
+          ws.send(JSON.stringify({
+            type: 'connection',
+            status: 'connected',
+            message: 'Hardware device connected successfully (by hello)'
+          }));
+        } else {
+          webClients.add(ws);
+          console.log(`🌐 Web client connected (total: ${webClients.size})`);
+          ws.send(JSON.stringify({
+            type: 'connection',
+            status: 'connected',
+            message: 'Web client connected successfully'
+          }));
+        }
+        welcomeSent = true;
         return;
       }
+      // Handle different message types
       if (data.type === 'attendance_record') {
         broadcastToWebClients({
           type: 'attendance_update',
