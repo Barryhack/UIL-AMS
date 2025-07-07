@@ -53,6 +53,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     let welcomeSent = false
     
     ws.on('message', (data: string) => {
+      console.log('Received message:', data.toString());
       try {
         const message = JSON.parse(data.toString())
         
