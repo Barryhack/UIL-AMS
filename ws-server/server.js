@@ -23,6 +23,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 console.log('🚀 Starting WebSocket server...');
+console.log('PORT ENV:', process.env.PORT);
 
 // Track connected devices
 const connectedDevices = new Map();
