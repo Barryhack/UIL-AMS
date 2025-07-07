@@ -41,8 +41,10 @@ wss.on('connection', (ws, req) => {
   let isHardware = false;
   let thisDeviceId = deviceId;
   let welcomeSent = false;
+  let messageReceived = false;
 
   ws.on('message', (message) => {
+    messageReceived = true;
     try {
       const data = JSON.parse(message);
       console.log(`📨 Received message:`, data);
@@ -93,6 +95,11 @@ wss.on('connection', (ws, req) => {
 
   // Handle disconnection
   ws.on('close', () => {
+    if (messageReceived) {
+      console.log('Connection closed after receiving at least one message.');
+    } else {
+      console.log('Connection closed before any message was received.');
+    }
     if (deviceId) {
       connectedDevices.delete(deviceId);
       console.log(`❌ Hardware device ${deviceId} disconnected`);
