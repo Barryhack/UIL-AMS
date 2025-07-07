@@ -38,9 +38,10 @@ wss.on('connection', (ws, req) => {
   console.log(`📱 Device ID: ${deviceId || 'web-client'}`);
   console.log(`🔗 MAC Address: ${macAddress || 'N/A'}`);
 
-  // Determine client type - accept hardware devices with just deviceId
+  let isHardware = false;
+  let thisDeviceId = deviceId;
   if (deviceId) {
-    // Hardware device (with or without MAC address)
+    isHardware = true;
     connectedDevices.set(deviceId, {
       ws,
       macAddress: macAddress || 'unknown',
@@ -48,19 +49,14 @@ wss.on('connection', (ws, req) => {
       type: 'hardware'
     });
     console.log(`✅ Hardware device ${deviceId} connected`);
-    
-    // Send welcome message
     ws.send(JSON.stringify({
       type: 'connection',
       status: 'connected',
       message: 'Hardware device connected successfully'
     }));
   } else {
-    // Web client
     webClients.add(ws);
     console.log(`🌐 Web client connected (total: ${webClients.size})`);
-    
-    // Send welcome message
     ws.send(JSON.stringify({
       type: 'connection',
       status: 'connected',
@@ -73,19 +69,32 @@ wss.on('connection', (ws, req) => {
     try {
       const data = JSON.parse(message);
       console.log(`📨 Received message:`, data);
-      
-      // Handle different message types
+      if (!isHardware && data.type === 'hello' && data.clientType === 'device' && data.deviceId) {
+        isHardware = true;
+        thisDeviceId = data.deviceId;
+        connectedDevices.set(thisDeviceId, {
+          ws,
+          macAddress: data.macAddress || 'unknown',
+          lastSeen: Date.now(),
+          type: 'hardware'
+        });
+        webClients.delete(ws);
+        console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
+        ws.send(JSON.stringify({
+          type: 'connection',
+          status: 'connected',
+          message: 'Hardware device connected successfully (by hello)'
+        }));
+        return;
+      }
       if (data.type === 'attendance_record') {
-        // Broadcast attendance record to all web clients
         broadcastToWebClients({
           type: 'attendance_update',
           data: data.data
         });
       } else if (data.type === 'fingerprint_result') {
-        // Handle fingerprint results
         console.log(`👆 Fingerprint result:`, data);
       } else if (data.type === 'rfid_result') {
-        // Handle RFID results
         console.log(`💳 RFID result:`, data);
       }
     } catch (error) {
