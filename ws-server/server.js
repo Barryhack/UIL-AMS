@@ -145,10 +145,11 @@ function broadcastToDevices(command) {
 }
 
 // Start server
-const PORT = process.env.PORT || 4011;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
   console.log(`📊 Health check available at: http://localhost:${PORT}/health`);
+  console.log(`WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`);
 });
 
 // Export functions for external use
