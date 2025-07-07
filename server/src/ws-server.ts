@@ -36,6 +36,7 @@ const clients = new Set<ExtendedWebSocket>()
 function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
   const wss = new WebSocketServer({ server })
   wss.on('connection', (ws: ExtendedWebSocket, req: IncomingMessage) => {
+    console.log('New connection:', req.url, req.headers);
     // Identify client type
     const deviceId = req.headers['x-device-id'] as string
     const macAddress = req.headers['x-mac-address'] as string
