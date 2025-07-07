@@ -145,7 +145,10 @@ function broadcastToDevices(command) {
 }
 
 // Start server
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT;
+if (!PORT) {
+  throw new Error('PORT environment variable is not set!');
+}
 server.listen(PORT, () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
   console.log(`📊 Health check available at: http://localhost:${PORT}/health`);
