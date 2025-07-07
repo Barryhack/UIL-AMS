@@ -63,8 +63,8 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
           ws.deviceId = message.deviceId || deviceId
           ws.macAddress = message.macAddress || macAddress
           isWebClient = false
-          console.log(`Device identified: ${ws.deviceId} (${ws.macAddress})`)
-          
+          // Device-specific logging
+          console.log(`📱 Device identified: ${ws.deviceId} (${ws.macAddress})`)
           // Send device-specific welcome
           ws.send(JSON.stringify({
             type: 'welcome',
