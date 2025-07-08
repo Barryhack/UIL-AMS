@@ -159,7 +159,7 @@ const PORT = process.env.PORT;
 if (!PORT) {
   throw new Error('PORT environment variable is not set!');
 }
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
   console.log(`📊 Health check available at: http://localhost:${PORT}/health`);
   console.log(`WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`);

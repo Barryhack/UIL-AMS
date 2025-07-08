@@ -17,7 +17,7 @@ interface UseWebSocketOptions {
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const {
-    url = process.env.NEXT_PUBLIC_WS_URL || 'wss://uil-ams.onrender.com/api/ws',
+    url = process.env.NEXT_PUBLIC_WS_URL || 'wss://unilorin-ams-ws-server.onrender.com/api/ws',
     onMessage,
     onConnect,
     onDisconnect,
@@ -67,11 +67,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         // Attempt to reconnect if not a normal closure
         if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++
-          console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`)
-          
+          const delay = reconnectInterval * Math.pow(2, reconnectAttemptsRef.current - 1); // Exponential backoff
+          console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`)
           reconnectTimeoutRef.current = setTimeout(() => {
             connect()
-          }, reconnectInterval)
+          }, delay)
         }
       }
 
