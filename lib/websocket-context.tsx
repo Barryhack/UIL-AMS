@@ -20,6 +20,14 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [lastAttendanceUpdate, setLastAttendanceUpdate] = useState<AttendanceUpdate | null>(null)
 
+  // Diagnostic logging for mount/unmount
+  useEffect(() => {
+    console.log('[WebSocketProvider] Mounted');
+    return () => {
+      console.log('[WebSocketProvider] Unmounted');
+    };
+  }, []);
+
   const { isConnected, error, sendMessage } = useWebSocket({
     onMessage: (message) => {
       if (message.type === 'attendance_update') {
