@@ -69,9 +69,9 @@ export function HardwareScanner({
       }
 
       if (mode === 'ENROLL' && userId) {
-        await service.enrollFingerprint(userId, deviceId)
+        await service.enrollFingerprint(deviceId, userId)
       } else {
-        await service.scanFingerprint(userId || "", deviceId)
+        await service.triggerFingerprintScan(deviceId)
       }
     } catch (error) {
       setIsScanning(false)
@@ -222,7 +222,7 @@ export function HardwareScanner({
         throw new Error('Device not connected. Please check the hardware connection.')
       }
 
-      await service.scanRFID(deviceId)
+      await service.triggerRFIDScan(deviceId)
     } catch (error) {
       setIsScanning(false)
       const errorMessage = error instanceof Error ? error.message : 'Failed to start RFID scan'

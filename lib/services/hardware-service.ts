@@ -162,19 +162,41 @@ class HardwareService extends EventEmitter {
     }
   }
 
-  // Convenience methods for common commands
+  // WebSocket command sender
+  sendDeviceCommandWS(command: DeviceCommand): boolean {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'device_command', ...command }));
+      console.log('[Hardware Service] Command sent over WebSocket:', command);
+      toast({
+        title: 'Command Sent (WebSocket)',
+        description: `Command ${command.type} sent to device ${command.deviceId}`,
+      });
+      return true;
+    } else {
+      toast({
+        title: 'WebSocket Not Connected',
+        description: 'Falling back to HTTP for device command.',
+        variant: 'warning',
+      });
+      return false;
+    }
+  }
+
+  isWebSocketOpen(): boolean {
+    return !!this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  // Convenience methods for common commands (prefer WebSocket)
   async triggerFingerprintScan(deviceId: string): Promise<boolean> {
-    return this.sendDeviceCommand({
-      deviceId,
-      type: 'fingerprint_scan'
-    });
+    const command: DeviceCommand = { deviceId, type: 'fingerprint_scan' };
+    if (this.sendDeviceCommandWS(command)) return true;
+    return this.sendDeviceCommand(command);
   }
 
   async triggerRFIDScan(deviceId: string): Promise<boolean> {
-    return this.sendDeviceCommand({
-      deviceId,
-      type: 'rfid_scan'
-    });
+    const command: DeviceCommand = { deviceId, type: 'rfid_scan' };
+    if (this.sendDeviceCommandWS(command)) return true;
+    return this.sendDeviceCommand(command);
   }
 
   async startAttendanceSession(deviceId: string, sessionId: string, courseId: string, lecturerId: string, duration: number = 7200000): Promise<boolean> {
@@ -198,11 +220,9 @@ class HardwareService extends EventEmitter {
   }
 
   async enrollFingerprint(deviceId: string, userId: string): Promise<boolean> {
-    return this.sendDeviceCommand({
-      deviceId,
-      type: 'fingerprint_enroll',
-      data: { userId }
-    });
+    const command: DeviceCommand = { deviceId, type: 'fingerprint_enroll', data: { userId } };
+    if (this.sendDeviceCommandWS(command)) return true;
+    return this.sendDeviceCommand(command);
   }
 }
 
