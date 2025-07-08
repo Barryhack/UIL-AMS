@@ -20,7 +20,7 @@ const server = http.createServer((req, res) => {
 });
 
 // Create WebSocket server
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, path: '/api/ws' });
 
 console.log('🚀 Starting WebSocket server...');
 console.log('PORT ENV:', process.env.PORT);
