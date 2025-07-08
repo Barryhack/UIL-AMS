@@ -106,7 +106,10 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
         console.error('Error processing message:', err)
       }
     })
-    ws.on('close', () => clients.delete(ws))
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket disconnected: code=${code} reason=${reason && reason.toString('utf8')}`);
+      clients.delete(ws);
+    });
     ws.on('pong', () => { ws.isAlive = true })
   })
   // Heartbeat
