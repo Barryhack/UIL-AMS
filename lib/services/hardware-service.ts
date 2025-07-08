@@ -165,8 +165,15 @@ class HardwareService extends EventEmitter {
   // WebSocket command sender
   sendDeviceCommandWS(command: DeviceCommand): boolean {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'device_command', ...command }));
-      console.log('[Hardware Service] Command sent over WebSocket:', command);
+      // Convert to the format expected by the main sketch
+      const wsPayload = {
+        type: 'device_command',
+        deviceId: command.deviceId,
+        command: command.type, // 'type' is the command name
+        parameters: command.data || {}
+      };
+      this.ws.send(JSON.stringify(wsPayload));
+      console.log('[Hardware Service] Command sent over WebSocket:', wsPayload);
       toast({
         title: 'Command Sent (WebSocket)',
         description: `Command ${command.type} sent to device ${command.deviceId}`,
@@ -176,7 +183,7 @@ class HardwareService extends EventEmitter {
       toast({
         title: 'WebSocket Not Connected',
         description: 'Falling back to HTTP for device command.',
-        variant: 'warning',
+        variant: undefined,
       });
       return false;
     }
