@@ -34,6 +34,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     },
     onConnect: () => {
       console.log('WebSocket connected - ready for real-time updates')
+      sendMessage({ type: 'hello', clientType: 'web-client' }) // Send handshake
     },
     onDisconnect: () => {
       console.log('WebSocket disconnected')
