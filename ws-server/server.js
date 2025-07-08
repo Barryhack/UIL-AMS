@@ -113,6 +113,10 @@ wss.on('connection', (ws, req) => {
   ws.on('error', (error) => {
     console.error('❌ WebSocket error:', error);
   });
+
+  ws.on('pong', () => {
+    console.log('Received pong from client');
+  });
 });
 
 // Function to broadcast to all web clients
@@ -160,6 +164,15 @@ server.listen(PORT, () => {
   console.log(`📊 Health check available at: http://localhost:${PORT}/health`);
   console.log(`WebSocket Server (WS) ready on ws://0.0.0.0:${PORT}/api/ws`);
 });
+
+// Send ping to all clients every 25 seconds to keep connections alive
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    }
+  });
+}, 25000);
 
 // Export functions for external use
 module.exports = {
