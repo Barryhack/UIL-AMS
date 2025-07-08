@@ -1,75 +1,110 @@
-'use client'
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { useWebSocket } from '@/hooks/use-websocket'
+// Types for attendance and scan events
+export interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  courseId: string;
+  courseCode: string;
+  sessionId: string;
+  timestamp: string;
+  method: "FINGERPRINT" | "RFID" | "MANUAL";
+  status: "PRESENT" | "ABSENT" | "LATE";
+}
 
-interface AttendanceUpdate {
-  type: 'attendance_update'
-  record: any
+export interface ScanEvent {
+  scanType: "fingerprint" | "rfid";
+  data: string;
+  userId?: string;
 }
 
 interface WebSocketContextType {
-  isConnected: boolean
-  error: string | null
-  lastAttendanceUpdate: AttendanceUpdate | null
-  sendMessage: (message: any) => void
+  isConnected: boolean;
+  lastAttendanceUpdate: AttendanceRecord | null;
+  lastScanEvent: ScanEvent | null;
+  sendMessage: (msg: any) => void;
 }
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined)
+const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
-  const [lastAttendanceUpdate, setLastAttendanceUpdate] = useState<AttendanceUpdate | null>(null)
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastAttendanceUpdate, setLastAttendanceUpdate] = useState<AttendanceRecord | null>(null);
+  const [lastScanEvent, setLastScanEvent] = useState<ScanEvent | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectDelay = 5000;
 
-  // Diagnostic logging for mount/unmount
+  // Connect and handle WebSocket events
+  const connect = () => {
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    const ws = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || "wss://unilorin-ams-ws-server.onrender.com/api/ws");
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('[WebSocket] OPEN');
+      setIsConnected(true);
+      ws.send(JSON.stringify({ type: "hello", clientType: "web-client" }));
+    };
+
+    ws.onmessage = (event) => {
+      console.log('[WebSocket] MESSAGE', event.data);
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "attendance_update") {
+          setLastAttendanceUpdate(message.record);
+        } else if (message.type === "scan") {
+          setLastScanEvent({
+            scanType: message.scanType,
+            data: message.data,
+            userId: message.userId,
+          });
+        }
+      } catch (err) {
+        // Ignore parse errors
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log('[WebSocket] CLOSE', event.code, event.reason);
+      setIsConnected(false);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = setTimeout(connect, reconnectDelay);
+    };
+
+    ws.onerror = (event) => {
+      console.log('[WebSocket] ERROR', event);
+      // Error is handled by onclose
+    };
+  };
+
+  // Cleanup on unmount
   useEffect(() => {
-    console.log('[WebSocketProvider] Mounted');
+    connect();
     return () => {
-      console.log('[WebSocketProvider] Unmounted');
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
-  const { isConnected, error, sendMessage } = useWebSocket({
-    onMessage: (message) => {
-      if (message.type === 'attendance_update') {
-        console.log('Real-time attendance update received:', message)
-        setLastAttendanceUpdate(message as AttendanceUpdate)
-        
-        // You can add additional logic here, such as:
-        // - Updating local state
-        // - Showing notifications
-        // - Refreshing data
-      }
-    },
-    onConnect: () => {
-      console.log('WebSocket connected - ready for real-time updates')
-      sendMessage({ type: 'hello', clientType: 'web-client' }) // Send handshake
-    },
-    onDisconnect: () => {
-      console.log('WebSocket disconnected')
-    },
-    onError: (error) => {
-      console.error('WebSocket error:', error)
+  const sendMessage = (msg: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(msg));
     }
-  })
-
-  const value: WebSocketContextType = {
-    isConnected,
-    error,
-    lastAttendanceUpdate,
-    sendMessage
-  }
+  };
 
   return (
-    <WebSocketContext.Provider value={value}>
+    <WebSocketContext.Provider value={{ isConnected, lastAttendanceUpdate, lastScanEvent, sendMessage }}>
       {children}
     </WebSocketContext.Provider>
-  )
+  );
 }
 
 export function useWebSocketContext() {
-  const context = useContext(WebSocketContext)
-  if (context === undefined) {
-    throw new Error('useWebSocketContext must be used within a WebSocketProvider')
-  }
-  return context
+  const ctx = useContext(WebSocketContext);
+  if (!ctx) throw new Error("useWebSocketContext must be used within a WebSocketProvider");
+  return ctx;
 } 
