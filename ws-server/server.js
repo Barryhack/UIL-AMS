@@ -83,10 +83,31 @@ wss.on('connection', (ws, req) => {
           type: 'attendance_update',
           data: data.data
         });
+        // Also broadcast as scan event for registration feedback
+        broadcastToWebClients({
+          type: 'scan',
+          scanType: data.data.type === 'fingerprint' ? 'fingerprint' : (data.data.type === 'rfid' ? 'rfid' : 'unknown'),
+          data: data.data.identifier,
+          userId: data.data.userId || null
+        });
       } else if (data.type === 'fingerprint_result') {
         console.log(`👆 Fingerprint result:`, data);
+        // Broadcast scan event for fingerprint
+        broadcastToWebClients({
+          type: 'scan',
+          scanType: 'fingerprint',
+          data: data.fingerprintId || data.data || '',
+          userId: data.userId || null
+        });
       } else if (data.type === 'rfid_result') {
         console.log(`💳 RFID result:`, data);
+        // Broadcast scan event for RFID
+        broadcastToWebClients({
+          type: 'scan',
+          scanType: 'rfid',
+          data: data.rfidUid || data.data || '',
+          userId: data.userId || null
+        });
       }
     } catch (error) {
       console.error('❌ Error parsing message:', error);
