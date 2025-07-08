@@ -33,27 +33,19 @@ export function RealTimeAttendance({ sessionId, courseId, onAttendanceUpdate }: 
 
   // Handle real-time attendance updates
   useEffect(() => {
-    if (lastAttendanceUpdate?.record) {
-      const record = lastAttendanceUpdate.record as AttendanceRecord
-      
+    if (lastAttendanceUpdate) {
+      const record = lastAttendanceUpdate as AttendanceRecord
       // Only process records for the current session/course if specified
       if ((sessionId && record.sessionId === sessionId) || 
           (courseId && record.courseId === courseId) ||
           (!sessionId && !courseId)) {
-        
-        // Add to recent attendances
         setRecentAttendances(prev => [record, ...prev.slice(0, 9)]) // Keep last 10
         setTotalAttendances(prev => prev + 1)
-        
-        // Call the callback if provided
         onAttendanceUpdate?.(record)
-        
-        // Show toast notification
         const methodIcon = record.method === 'FINGERPRINT' ? '👆' : 
                           record.method === 'RFID' ? '📱' : '✍️'
         const statusIcon = record.status === 'PRESENT' ? '✅' : 
                           record.status === 'LATE' ? '⏰' : '❌'
-        
         toast.success(`${methodIcon} ${record.studentName} marked ${record.status.toLowerCase()}`, {
           description: `${statusIcon} ${record.courseCode} • ${new Date(record.timestamp).toLocaleTimeString()}`
         })
@@ -77,13 +69,13 @@ export function RealTimeAttendance({ sessionId, courseId, onAttendanceUpdate }: 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'PRESENT':
-        return <Badge variant="default" className="bg-green-500">Present</Badge>
+        return <Badge variant="success" className="bg-green-500">Present</Badge>
       case 'LATE':
-        return <Badge variant="secondary" className="bg-yellow-500">Late</Badge>
+        return <Badge variant="warning" className="bg-yellow-500">Late</Badge>
       case 'ABSENT':
-        return <Badge variant="destructive">Absent</Badge>
+        return <Badge variant="danger">Absent</Badge>
       default:
-        return <Badge variant="outline">Unknown</Badge>
+        return <Badge variant="primary">Unknown</Badge>
     }
   }
 

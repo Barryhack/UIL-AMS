@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { toast } from '@/hooks/use-toast';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://uil-ams.onrender.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://unilorin-ams-ws-server.onrender.com';
 
 export interface DeviceCommand {
   deviceId: string;
@@ -206,7 +206,7 @@ class HardwareService extends EventEmitter {
   }
 }
 
-export const hardwareService = new HardwareService();
+export const hardwareService = new HardwareService(); 
 
 // Export a function to get the hardware service instance
 export const getHardwareService = () => hardwareService; 

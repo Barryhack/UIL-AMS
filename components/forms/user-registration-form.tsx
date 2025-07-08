@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { faculties } from "@/lib/constants/faculties"
 import { userRegistrationSchema, type UserRegistrationData } from "@/lib/schemas/user"
 import { HardwareScanner } from "./HardwareScanner"
+import { useWebSocketContext } from "@/lib/websocket-context"
 
 interface UserRegistrationFormProps {
   open: boolean
@@ -45,6 +46,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
   const [createdUserId, setCreatedUserId] = useState<string | null>(null)
   const [devices, setDevices] = useState<any[]>([])
   const [devicesLoading, setDevicesLoading] = useState(false)
+  const { lastScanEvent } = useWebSocketContext();
 
   const form = useForm<UserRegistrationData>({
     resolver: zodResolver(userRegistrationSchema),
@@ -74,6 +76,18 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
       })
       .catch(() => setDevicesLoading(false))
   }, [open])
+
+  // Listen for real-time scan events during biometric step
+  useEffect(() => {
+    if (registrationStep === 2 && lastScanEvent) {
+      if (lastScanEvent.scanType === "fingerprint") {
+        handleFingerprintScanned(lastScanEvent.data);
+      } else if (lastScanEvent.scanType === "rfid") {
+        handleRFIDScanned(lastScanEvent.data);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastScanEvent, registrationStep]);
 
   const handleFacultyChange = (facultyId: string) => {
     setSelectedFaculty(facultyId)
