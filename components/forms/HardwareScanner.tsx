@@ -55,7 +55,11 @@ export function HardwareScanner({
       setError('Hardware service not available')
       return
     }
-    
+    // Defensive check
+    if (typeof service.isConnected !== 'function') {
+      setError('Hardware service is invalid (missing isConnected method)')
+      return
+    }
     try {
       setIsScanning(true)
       setError(null)
@@ -79,6 +83,12 @@ export function HardwareScanner({
 
   useEffect(() => {
     if (!service) return
+
+    // Defensive check
+    if (typeof service.isConnected !== 'function') {
+      setError('Hardware service is invalid (missing isConnected method)')
+      return
+    }
 
     // Check initial connection status
     const isConnected = service.isConnected()
@@ -182,6 +192,11 @@ export function HardwareScanner({
   useEffect(() => {
     console.log('ENROLL useEffect check', { mode, isConnected, isScanning, userId });
     if (mode === 'ENROLL' && isConnected && !isScanning && userId && service) {
+      // Defensive check
+      if (typeof service.isConnected !== 'function') {
+        setError('Hardware service is invalid (missing isConnected method)')
+        return
+      }
       console.log('Triggering startFingerprint in ENROLL mode', { mode, isConnected, isScanning, userId });
       // Only trigger once when the component first connects
       const timer = setTimeout(() => {
