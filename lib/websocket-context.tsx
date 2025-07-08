@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 
 // Types for attendance and scan events
