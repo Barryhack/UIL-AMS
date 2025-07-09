@@ -71,6 +71,16 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
             message: 'Device connected to UNILORIN AMS WebSocket server',
             timestamp: new Date().toISOString()
           }))
+          // Broadcast device status to all clients
+          clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'device_status',
+                status: 'connected',
+                deviceId: ws.deviceId
+              }))
+            }
+          })
           welcomeSent = true
           return
         }
@@ -109,6 +119,18 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     ws.on('close', (code, reason) => {
       console.log(`WebSocket disconnected: code=${code} reason=${reason && reason.toString('utf8')}`);
       clients.delete(ws);
+      // If this was a device, broadcast disconnected status
+      if (ws.deviceId) {
+        clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'device_status',
+              status: 'disconnected',
+              deviceId: ws.deviceId
+            }))
+          }
+        })
+      }
     });
     ws.on('pong', () => { ws.isAlive = true })
   })
