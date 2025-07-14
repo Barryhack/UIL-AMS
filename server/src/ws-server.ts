@@ -101,6 +101,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
         if (message.type === 'status' && ws.deviceId) {
           clients.forEach(client => {
             if (!client.deviceId && client.readyState === WebSocket.OPEN) {
+              console.log(`[SEND] device_status to web client: deviceId=${ws.deviceId}, status=${message.data.status}`);
               client.send(JSON.stringify({
                 type: 'device_status',
                 deviceId: ws.deviceId,
