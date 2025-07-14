@@ -33,6 +33,9 @@ type ExtendedWebSocket = WebSocket & {
 
 const clients = new Set<ExtendedWebSocket>()
 
+// Track latest status for each device
+const deviceStatusMap: Record<string, any> = {};
+
 function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
   const wss = new WebSocketServer({ server })
   wss.on('connection', (ws: ExtendedWebSocket, req: IncomingMessage) => {
@@ -95,10 +98,24 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
             timestamp: new Date().toISOString()
           }))
           welcomeSent = true
+          // Send latest status of all devices to this web client
+          Object.values(deviceStatusMap).forEach(statusMsg => {
+            ws.send(JSON.stringify({
+              type: 'device_status',
+              ...statusMsg
+            }));
+            console.log(`[SEND] device_status to new web client: deviceId=${statusMsg.deviceId}, status=${statusMsg.status}`);
+          });
         }
         
         // Broadcast device status updates to all web clients on status message
         if (message.type === 'status' && ws.deviceId) {
+          // Update the device status map
+          deviceStatusMap[ws.deviceId] = {
+            deviceId: ws.deviceId,
+            status: message.data.status,
+            ...message.data
+          };
           clients.forEach(client => {
             if (!client.deviceId && client.readyState === WebSocket.OPEN) {
               console.log(`[SEND] device_status to web client: deviceId=${ws.deviceId}, status=${message.data.status}`);
