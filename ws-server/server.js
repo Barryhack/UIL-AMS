@@ -5,6 +5,16 @@ const url = require('url');
 
 // Create HTTP server for health checks
 const server = http.createServer((req, res) => {
+  // Add CORS headers
+  res.setHeader('Access-Control-Allow-Origin', 'https://uil-ams.onrender.com');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
@@ -55,26 +65,26 @@ wss.on('connection', (ws, req) => {
           isHardware = true;
           thisDeviceId = data.deviceId;
           connectedDevices.set(thisDeviceId, {
-            ws,
+      ws,
             macAddress: data.macAddress || 'unknown',
-            lastSeen: Date.now(),
-            type: 'hardware'
-          });
+      lastSeen: Date.now(),
+      type: 'hardware'
+    });
           webClients.delete(ws);
           console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
-          ws.send(JSON.stringify({
-            type: 'connection',
-            status: 'connected',
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
             message: 'Hardware device connected successfully (by hello)'
-          }));
-        } else {
-          webClients.add(ws);
-          console.log(`🌐 Web client connected (total: ${webClients.size})`);
-          ws.send(JSON.stringify({
-            type: 'connection',
-            status: 'connected',
-            message: 'Web client connected successfully'
-          }));
+    }));
+  } else {
+    webClients.add(ws);
+    console.log(`🌐 Web client connected (total: ${webClients.size})`);
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
+      message: 'Web client connected successfully'
+    }));
           // Send latest status of all devices to this web client
           deviceStatusMap.forEach((statusMsg, devId) => {
             ws.send(JSON.stringify({
