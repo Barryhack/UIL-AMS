@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Fingerprint, CreditCard, Loader2, WifiOff } from "lucide-react"
 import { getHardwareService } from "@/lib/services/hardware-service"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useWebSocketContext } from '@/lib/websocket-context';
 
 interface HardwareScannerProps {
   onRFIDScanned?: (data: string) => void
@@ -32,11 +33,12 @@ export function HardwareScanner({
 }: HardwareScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [scanStatus, setScanStatus] = useState<string>('')
-  const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [service, setService] = useState<any>(null)
+  const { getDeviceStatus } = useWebSocketContext();
+  const isConnected = deviceId ? getDeviceStatus(deviceId) === 'online' : false;
 
-  console.log('HardwareScanner render', { mode, isConnected, isScanning, userId });
+  console.log('HardwareScanner render', { mode, isConnected, isScanning, userId, deviceId });
 
   // Initialize service only on client side
   useEffect(() => {
@@ -60,7 +62,7 @@ export function HardwareScanner({
       setIsScanning(true)
       setError(null)
       
-      if (!service.isConnected) {
+      if (!isConnected) {
         throw new Error('Device not connected. Please check the hardware connection.')
       }
 
@@ -75,123 +77,9 @@ export function HardwareScanner({
       setError(errorMessage)
       toast.error(errorMessage)
     }
-  }, [mode, userId, deviceId, service]);
+  }, [mode, userId, deviceId, service, isConnected]);
 
-  useEffect(() => {
-    if (!service) return
-
-    // Check initial connection status
-    const isConnected = service.isConnected
-    setIsConnected(isConnected)
-    
-    if (!isConnected) {
-      setError('Device not connected. Please check the hardware connection.')
-    }
-
-    const handleConnect = () => {
-      console.log('Hardware connected')
-      setIsConnected(true)
-      setError(null)
-    }
-
-    const handleDisconnect = () => {
-      console.log('Hardware disconnected')
-      setIsConnected(false)
-      setError('Device disconnected. Please check the hardware connection.')
-      setIsScanning(false)
-    }
-
-    const handleStatusUpdate = (status: StatusUpdate) => {
-      console.log('Status update:', status)
-      setScanStatus(status.message)
-      
-      switch (status.status) {
-        case 'error':
-          setError(status.message)
-          setIsScanning(false)
-          toast.error(status.message)
-          break
-        case 'connected':
-          setIsConnected(true)
-          setError(null)
-          toast.success(status.message)
-          break
-        case 'disconnected':
-          setIsConnected(false)
-          setError(status.message)
-          setIsScanning(false)
-          toast.error(status.message)
-          break
-        case 'connecting':
-        case 'reconnecting':
-          setIsConnected(false)
-          setError(null)
-          setScanStatus(status.message)
-          break
-        default:
-          setScanStatus(status.message)
-      }
-    }
-
-    const handleScanComplete = (result: any) => {
-      console.log('Scan complete:', result)
-      setIsScanning(false)
-      setScanStatus('')
-      setError(null)
-
-      if (result.success) {
-        if (result.fingerprintId !== undefined) {
-          if (mode === 'ENROLL') {
-            onFingerprintEnrolled?.(String(result.fingerprintId))
-          } else {
-            onFingerprintScanned?.(String(result.fingerprintId))
-          }
-          toast.success('Fingerprint scan completed')
-        } else if (result.cardId) {
-          onRFIDScanned?.(result.cardId)
-          toast.success('RFID card scanned')
-        }
-      } else {
-        const errorMessage = result.error || 'Scan failed'
-        setError(errorMessage)
-        toast.error(errorMessage)
-      }
-    }
-
-    // Set up event listeners
-    service.on('connected', handleConnect)
-    service.on('disconnected', handleDisconnect)
-    service.on('statusUpdate', handleStatusUpdate)
-    service.on('scanComplete', handleScanComplete)
-
-    // Try to connect if not connected
-    if (!isConnected) {
-      service.testConnection()
-    }
-
-    return () => {
-      // Clean up event listeners
-      service.removeListener('connected', handleConnect)
-      service.removeListener('disconnected', handleDisconnect)
-      service.removeListener('statusUpdate', handleStatusUpdate)
-      service.removeListener('scanComplete', handleScanComplete)
-    }
-  }, [mode, onRFIDScanned, onFingerprintScanned, onFingerprintEnrolled, service]);
-
-  // Auto-start enrollment when component mounts in ENROLL mode - but only once
-  useEffect(() => {
-    console.log('ENROLL useEffect check', { mode, isConnected, isScanning, userId });
-    if (mode === 'ENROLL' && isConnected && !isScanning && userId && service) {
-      console.log('Triggering startFingerprint in ENROLL mode', { mode, isConnected, isScanning, userId });
-      // Only trigger once when the component first connects
-      const timer = setTimeout(() => {
-        if (service.isConnected && !isScanning) {
-          startFingerprint();
-        }
-      }, 1000); // Increased delay to ensure stable connection
-      return () => clearTimeout(timer);
-    }
-  }, [mode, isConnected, userId, service, startFingerprint]); // Added service and startFingerprint to dependencies
+  // Remove isConnected effect and all setIsConnected calls
 
   const startRFID = async () => {
     if (!service) {
