@@ -18,6 +18,7 @@ export interface AttendanceRecord {
 }
 
 class HardwareService extends EventEmitter {
+  public isConnected: boolean = false;
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -111,10 +112,10 @@ class HardwareService extends EventEmitter {
 
     this.ws = new WebSocket(wsUrl);
 
-        this.ws.onopen = () => {
+    this.ws.onopen = () => {
+      this.isConnected = true;
       console.log('[Hardware Service] WebSocket connected');
       this.reconnectAttempts = 0;
-      
       // Send client type
       this.ws?.send(JSON.stringify({
         type: 'client_connect',
@@ -122,7 +123,7 @@ class HardwareService extends EventEmitter {
       }));
     };
 
-        this.ws.onmessage = (event) => {
+    this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log('[Hardware Service] WebSocket message received:', data);
@@ -133,6 +134,7 @@ class HardwareService extends EventEmitter {
     };
 
     this.ws.onclose = () => {
+      this.isConnected = false;
       console.log('[Hardware Service] WebSocket disconnected');
       this.scheduleReconnect(onMessage);
     };
