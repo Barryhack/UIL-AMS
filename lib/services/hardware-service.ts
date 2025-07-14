@@ -26,6 +26,30 @@ class HardwareService extends EventEmitter {
 
   // HTTP-based device commands
   async sendDeviceCommand(command: DeviceCommand): Promise<boolean> {
+    // Prefer WebSocket if available and open
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({
+          type: 'device_command',
+          ...command
+        }));
+        console.log('[Hardware Service] Command sent via WebSocket:', command);
+        toast({
+          title: "Command Sent",
+          description: `Command ${command.type} sent to device ${command.deviceId} (WebSocket)`,
+        });
+        return true;
+      } catch (error) {
+        console.error('[Hardware Service] Failed to send command via WebSocket:', error);
+        toast({
+          title: "Command Failed",
+          description: `Failed to send command via WebSocket: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: "destructive",
+        });
+        // Fall through to HTTP fallback
+      }
+    }
+    // Fallback to HTTP if WebSocket is not available
     try {
       const response = await fetch(`${API_BASE}/api/admin/device-command`, {
         method: 'POST',
@@ -40,16 +64,14 @@ class HardwareService extends EventEmitter {
       }
 
       const result = await response.json();
-      console.log('[Hardware Service] Command sent successfully:', result);
-      
+      console.log('[Hardware Service] Command sent successfully (HTTP):', result);
       toast({
         title: "Command Sent",
-        description: `Command ${command.type} sent to device ${command.deviceId}`,
+        description: `Command ${command.type} sent to device ${command.deviceId} (HTTP)`,
       });
-
       return true;
     } catch (error) {
-      console.error('[Hardware Service] Failed to send command:', error);
+      console.error('[Hardware Service] Failed to send command (HTTP):', error);
       toast({
         title: "Command Failed",
         description: `Failed to send command to device: ${error instanceof Error ? error.message : 'Unknown error'}`,
