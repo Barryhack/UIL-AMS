@@ -64,6 +64,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             data: message.data,
             userId: message.userId,
           });
+        } else if (message.type === "device_status") {
+          // Update device connection state based on device_status message
+          // You may want to store a map of deviceId -> status if multiple devices
+          setIsConnected(message.status === 'online');
         }
       } catch (err) {
         // Ignore parse errors

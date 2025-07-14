@@ -71,17 +71,17 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
             message: 'Device connected to UNILORIN AMS WebSocket server',
             timestamp: new Date().toISOString()
           }))
-          // Broadcast device status to all clients
+          welcomeSent = true
+          // Broadcast device online status to all web clients
           clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
+            if (client !== ws && !client.deviceId && client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
                 type: 'device_status',
-                status: 'connected',
-                deviceId: ws.deviceId
+                deviceId: ws.deviceId,
+                status: 'online'
               }))
             }
           })
-          welcomeSent = true
           return
         }
         
@@ -118,19 +118,19 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
     })
     ws.on('close', (code, reason) => {
       console.log(`WebSocket disconnected: code=${code} reason=${reason && reason.toString('utf8')}`);
-      clients.delete(ws);
-      // If this was a device, broadcast disconnected status
+      // Broadcast device offline status if this was a device
       if (ws.deviceId) {
         clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
+          if (client !== ws && !client.deviceId && client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
               type: 'device_status',
-              status: 'disconnected',
-              deviceId: ws.deviceId
+              deviceId: ws.deviceId,
+              status: 'offline'
             }))
           }
         })
       }
+      clients.delete(ws);
     });
     ws.on('pong', () => { ws.isAlive = true })
   })
