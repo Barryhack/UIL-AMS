@@ -7,6 +7,7 @@ export interface DeviceCommand {
   deviceId: string;
   type: string;
   data?: any;
+  command?: string;
 }
 
 export interface AttendanceRecord {
@@ -210,7 +211,7 @@ class HardwareService extends EventEmitter {
   async scanFingerprint(userId: string, deviceId: string): Promise<boolean> {
     return this.sendDeviceCommand({
       deviceId,
-      type: 'fingerprint_scan',
+      command: 'fingerprint_scan',
       data: { userId }
     });
   }
