@@ -67,6 +67,7 @@ export function HardwareScanner({
       }
 
       if (mode === 'ENROLL' && userId) {
+        console.log('Calling enrollFingerprint', { userId, deviceId });
         await service.enrollFingerprint(userId, deviceId)
       } else {
         await service.scanFingerprint(userId || "", deviceId)
@@ -161,7 +162,7 @@ export function HardwareScanner({
           <div className="grid grid-cols-2 gap-4 w-full">
             <Button
               onClick={startFingerprint}
-              disabled={isScanning || mode === 'ENROLL'}
+              disabled={isScanning}
               className="w-full"
             >
               {isScanning ? (
