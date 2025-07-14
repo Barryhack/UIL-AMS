@@ -55,11 +55,7 @@ export function HardwareScanner({
       setError('Hardware service not available')
       return
     }
-    // Defensive check
-    if (typeof service.isConnected !== 'function') {
-      setError('Hardware service is invalid (missing isConnected method)')
-      return
-    }
+    
     try {
       setIsScanning(true)
       setError(null)
@@ -69,9 +65,9 @@ export function HardwareScanner({
       }
 
       if (mode === 'ENROLL' && userId) {
-        await service.enrollFingerprint(deviceId, userId)
+        await service.enrollFingerprint(userId, deviceId)
       } else {
-        await service.triggerFingerprintScan(deviceId)
+        await service.scanFingerprint(userId || "", deviceId)
       }
     } catch (error) {
       setIsScanning(false)
@@ -83,12 +79,6 @@ export function HardwareScanner({
 
   useEffect(() => {
     if (!service) return
-
-    // Defensive check
-    if (typeof service.isConnected !== 'function') {
-      setError('Hardware service is invalid (missing isConnected method)')
-      return
-    }
 
     // Check initial connection status
     const isConnected = service.isConnected()
@@ -192,11 +182,6 @@ export function HardwareScanner({
   useEffect(() => {
     console.log('ENROLL useEffect check', { mode, isConnected, isScanning, userId });
     if (mode === 'ENROLL' && isConnected && !isScanning && userId && service) {
-      // Defensive check
-      if (typeof service.isConnected !== 'function') {
-        setError('Hardware service is invalid (missing isConnected method)')
-        return
-      }
       console.log('Triggering startFingerprint in ENROLL mode', { mode, isConnected, isScanning, userId });
       // Only trigger once when the component first connects
       const timer = setTimeout(() => {
@@ -222,7 +207,7 @@ export function HardwareScanner({
         throw new Error('Device not connected. Please check the hardware connection.')
       }
 
-      await service.triggerRFIDScan(deviceId)
+      await service.scanRFID(deviceId)
     } catch (error) {
       setIsScanning(false)
       const errorMessage = error instanceof Error ? error.message : 'Failed to start RFID scan'

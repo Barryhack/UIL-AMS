@@ -53,27 +53,27 @@ wss.on('connection', (ws, req) => {
           isHardware = true;
           thisDeviceId = data.deviceId;
           connectedDevices.set(thisDeviceId, {
-            ws,
+      ws,
             macAddress: data.macAddress || 'unknown',
-            lastSeen: Date.now(),
-            type: 'hardware'
-          });
+      lastSeen: Date.now(),
+      type: 'hardware'
+    });
           webClients.delete(ws);
           console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
-          ws.send(JSON.stringify({
-            type: 'connection',
-            status: 'connected',
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
             message: 'Hardware device connected successfully (by hello)'
-          }));
-        } else {
-          webClients.add(ws);
-          console.log(`🌐 Web client connected (total: ${webClients.size})`);
-          ws.send(JSON.stringify({
-            type: 'connection',
-            status: 'connected',
-            message: 'Web client connected successfully'
-          }));
-        }
+    }));
+  } else {
+    webClients.add(ws);
+    console.log(`🌐 Web client connected (total: ${webClients.size})`);
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
+      message: 'Web client connected successfully'
+    }));
+  }
         welcomeSent = true;
         return;
       }
@@ -192,7 +192,7 @@ setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.ping();
     }
-  });
+});
 }, 25000);
 
 // Export functions for external use

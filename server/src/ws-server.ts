@@ -82,6 +82,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
               }))
             }
           })
+          console.log(`[BROADCAST] Device status: deviceId=${ws.deviceId}, status=online`);
           return
         }
         
@@ -129,6 +130,7 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
             }))
           }
         })
+        console.log(`[BROADCAST] Device status: deviceId=${ws.deviceId}, status=offline`);
       }
       clients.delete(ws);
     });

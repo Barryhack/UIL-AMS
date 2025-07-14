@@ -162,48 +162,19 @@ class HardwareService extends EventEmitter {
     }
   }
 
-  // WebSocket command sender
-  sendDeviceCommandWS(command: DeviceCommand): boolean {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      // Convert to the format expected by the main sketch
-      const wsPayload = {
-        type: 'device_command',
-        deviceId: command.deviceId,
-        command: command.type, // 'type' is the command name
-        parameters: command.data || {}
-      };
-      this.ws.send(JSON.stringify(wsPayload));
-      console.log('[Hardware Service] Command sent over WebSocket:', wsPayload);
-      toast({
-        title: 'Command Sent (WebSocket)',
-        description: `Command ${command.type} sent to device ${command.deviceId}`,
-      });
-      return true;
-    } else {
-      toast({
-        title: 'WebSocket Not Connected',
-        description: 'Falling back to HTTP for device command.',
-        variant: undefined,
-      });
-      return false;
-    }
-  }
-
-  isWebSocketOpen(): boolean {
-    return !!this.ws && this.ws.readyState === WebSocket.OPEN;
-  }
-
-  // Convenience methods for common commands (prefer WebSocket)
+  // Convenience methods for common commands
   async triggerFingerprintScan(deviceId: string): Promise<boolean> {
-    const command: DeviceCommand = { deviceId, type: 'fingerprint_scan' };
-    if (this.sendDeviceCommandWS(command)) return true;
-    return this.sendDeviceCommand(command);
+    return this.sendDeviceCommand({
+      deviceId,
+      type: 'fingerprint_scan'
+    });
   }
 
   async triggerRFIDScan(deviceId: string): Promise<boolean> {
-    const command: DeviceCommand = { deviceId, type: 'rfid_scan' };
-    if (this.sendDeviceCommandWS(command)) return true;
-    return this.sendDeviceCommand(command);
+    return this.sendDeviceCommand({
+      deviceId,
+      type: 'rfid_scan'
+    });
   }
 
   async startAttendanceSession(deviceId: string, sessionId: string, courseId: string, lecturerId: string, duration: number = 7200000): Promise<boolean> {
@@ -227,9 +198,11 @@ class HardwareService extends EventEmitter {
   }
 
   async enrollFingerprint(deviceId: string, userId: string): Promise<boolean> {
-    const command: DeviceCommand = { deviceId, type: 'fingerprint_enroll', data: { userId } };
-    if (this.sendDeviceCommandWS(command)) return true;
-    return this.sendDeviceCommand(command);
+    return this.sendDeviceCommand({
+      deviceId,
+      type: 'fingerprint_enroll',
+      data: { userId }
+    });
   }
 }
 
