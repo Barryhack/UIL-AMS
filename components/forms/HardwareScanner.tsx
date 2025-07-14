@@ -70,6 +70,7 @@ export function HardwareScanner({
         console.log('Calling enrollFingerprint', { userId, deviceId });
         await service.enrollFingerprint(userId, deviceId)
       } else {
+        console.log('Calling scanFingerprint', { userId, deviceId });
         await service.scanFingerprint(userId || "", deviceId)
       }
     } catch (error) {
