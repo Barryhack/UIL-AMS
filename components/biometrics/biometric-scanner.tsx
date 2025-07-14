@@ -62,18 +62,22 @@ export function BiometricScanner({ userId, userName, onComplete, onCancel }: Bio
   };
 
   const startFingerprintScan = useCallback(async () => {
+    console.log('[BiometricScanner] startFingerprintScan called', { userId, deviceId });
+    console.log('[BiometricScanner] service:', service, 'isConnected:', isConnected);
     setStep("fingerprint");
     setIsLoading(true);
     setError(null);
     startScanTimeout();
     try {
-      await service?.scanFingerprint(userId, deviceId);
+      const result = await service?.scanFingerprint(userId, deviceId);
+      console.log('[BiometricScanner] scanFingerprint result:', result);
     } catch (err) {
+      console.error('[BiometricScanner] Error in scanFingerprint:', err);
       setError("Failed to start fingerprint scan. Please try again.");
       setIsLoading(false);
       setStep("idle");
     }
-  }, [service, userId, deviceId]);
+  }, [service, userId, deviceId, isConnected]);
 
   const startRfidScan = useCallback(async () => {
     setStep("rfid");
