@@ -26,7 +26,7 @@ class HardwareService extends EventEmitter {
 
   // HTTP-based device commands
   async sendDeviceCommand(command: DeviceCommand): Promise<boolean> {
-    // Prefer WebSocket if available and open
+    // Only use WebSocket for device commands
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
         console.log('[WebSocket] SENDING', command);
@@ -47,39 +47,16 @@ class HardwareService extends EventEmitter {
           description: `Failed to send command via WebSocket: ${error instanceof Error ? error.message : 'Unknown error'}`,
           variant: "destructive",
         });
-        // Fall through to HTTP fallback
+        return false;
       }
     }
-    // Fallback to HTTP if WebSocket is not available
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/device-command`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(command),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('[Hardware Service] Command sent successfully (HTTP):', result);
-      toast({
-        title: "Command Sent",
-        description: `Command ${command.type} sent to device ${command.deviceId} (HTTP)`,
-      });
-      return true;
-    } catch (error) {
-      console.error('[Hardware Service] Failed to send command (HTTP):', error);
-      toast({
-        title: "Command Failed",
-        description: `Failed to send command to device: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive",
-      });
-      return false;
-    }
+    // WebSocket not connected
+    toast({
+      title: "Command Failed",
+      description: "WebSocket connection to hardware is not available.",
+      variant: "destructive",
+    });
+    return false;
   }
 
   // Send attendance record from device
