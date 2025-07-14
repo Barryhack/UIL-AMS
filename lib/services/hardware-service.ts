@@ -29,6 +29,7 @@ class HardwareService extends EventEmitter {
     // Prefer WebSocket if available and open
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
+        console.log('[WebSocket] SENDING', command);
         this.ws.send(JSON.stringify({
           type: 'device_command',
           ...command
