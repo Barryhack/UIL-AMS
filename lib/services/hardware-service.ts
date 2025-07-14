@@ -135,7 +135,7 @@ class HardwareService extends EventEmitter {
 
     this.ws = new WebSocket(wsUrl);
 
-    this.ws.onopen = () => {
+        this.ws.onopen = () => {
       this.isConnected = true;
       console.log('[Hardware Service] WebSocket connected');
       this.reconnectAttempts = 0;
@@ -146,7 +146,7 @@ class HardwareService extends EventEmitter {
       }));
     };
 
-    this.ws.onmessage = (event) => {
+        this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log('[Hardware Service] WebSocket message received:', data);
@@ -226,6 +226,14 @@ class HardwareService extends EventEmitter {
     return this.sendDeviceCommand({
       deviceId,
       type: 'fingerprint_enroll',
+      data: { userId }
+    });
+  }
+
+  async scanFingerprint(userId: string, deviceId: string): Promise<boolean> {
+    return this.sendDeviceCommand({
+      deviceId,
+      type: 'fingerprint_scan',
       data: { userId }
     });
   }
