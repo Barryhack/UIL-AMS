@@ -6,8 +6,7 @@ import { WebSocketProvider } from "@/lib/websocket-context"
 import { Toaster } from "sonner"
 import "@/styles/globals.css"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useEffect } from "react"
-import { getHardwareService } from "@/lib/services/hardware-service"
+import { HardwareWebSocketInitializer } from "@/components/HardwareWebSocketInitializer";
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,10 +20,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  useEffect(() => {
-    const hardwareService = getHardwareService();
-    hardwareService.connectWebSocket(() => {});
-  }, []);
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
@@ -37,6 +32,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
+                <HardwareWebSocketInitializer />
                 {children}
               </ThemeProvider>
             </TooltipProvider>
