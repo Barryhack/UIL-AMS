@@ -16,6 +16,7 @@ import { faculties } from "@/lib/constants/faculties";
 import { toast } from "sonner";
 import { Scan, Fingerprint, CreditCard } from "lucide-react";
 import { HardwareScanner } from "../forms/HardwareScanner";
+import { BiometricScanner } from "@/components/biometrics/biometric-scanner";
 
 export interface EditUserModalProps {
   user: any;
@@ -252,87 +253,20 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
             </div>
           </div>
           
-          {/* Biometric Scanning Section */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Scan className="h-5 w-5" />
-              Biometric Data
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-fingerprintId">Fingerprint ID</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    id="edit-fingerprintId" 
-                    name="fingerprintId" 
-                    value={form.fingerprintId || ""} 
-                    onChange={handleChange} 
-                    autoComplete="off"
-                    placeholder="Scan fingerprint to get ID"
-                    readOnly
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => { setScanMode('ENROLL'); setScanningType('fingerprint'); setCurrentUserId(user.id); }}
-                    disabled={!form.deviceId}
-                    title="Scan Fingerprint"
-                  >
-                    <Fingerprint className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-rfidUid">RFID UID</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    id="edit-rfidUid" 
-                    name="rfidUid" 
-                    value={form.rfidUid || ""} 
-                    onChange={handleChange} 
-                    autoComplete="off"
-                    placeholder="Scan RFID card to get UID"
-                    readOnly
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => { setScanMode('SCAN'); setScanningType('rfid'); setCurrentUserId(user.id); }}
-                    disabled={!form.deviceId}
-                    title="Scan RFID Card"
-                  >
-                    <CreditCard className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-          {scanMode && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-              <div className="bg-white p-6 rounded-lg w-96 relative z-[10000]">
-                <h2 className="text-lg font-semibold mb-4">
-                  {scanMode === 'SCAN' ? 'Scan RFID Card' : 'Enroll Fingerprint'}
-                </h2>
-                <HardwareScanner
-                  mode={scanMode}
-                  userId={currentUserId}
-                  deviceId={form.deviceId}
-                  onRFIDScanned={handleRFIDScanned}
-                  onFingerprintScanned={handleFingerprintScanned}
-                  onFingerprintEnrolled={handleFingerprintEnrolled}
-                />
-                <Button
-                  variant="outline"
-                  className="mt-4 w-full"
-                  onClick={() => { setScanMode(null); setScanningType(null); }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
+          {/* Biometric Section */}
+          <BiometricScanner
+            userId={form.id || user.id}
+            userName={form.name || user.name}
+            onComplete={({ fingerprintData, rfidData }) => {
+              setForm((prev: Record<string, any>) => ({
+                ...prev,
+                fingerprintId: fingerprintData || prev.fingerprintId,
+                rfidUid: rfidData || prev.rfidUid,
+              }));
+              toast.success('Biometric data updated!');
+            }}
+            onCancel={() => {}}
+          />
 
           {error && <div className="text-red-500 text-sm">{error}</div>}
           <DialogFooter>

@@ -28,6 +28,7 @@ import { faculties } from "@/lib/constants/faculties"
 import { userRegistrationSchema, type UserRegistrationData } from "@/lib/schemas/user"
 import { HardwareScanner } from "./HardwareScanner"
 import { useWebSocketContext } from "@/lib/websocket-context"
+import { BiometricScanner } from "@/components/biometrics/biometric-scanner";
 
 interface UserRegistrationFormProps {
   open: boolean
