@@ -23,6 +23,8 @@ export interface ScanEvent {
 
 interface WebSocketContextType {
   isConnected: boolean;
+  deviceStatusMap: Record<string, string>; // deviceId -> status
+  getDeviceStatus: (deviceId: string) => string | undefined;
   lastAttendanceUpdate: AttendanceRecord | null;
   lastScanEvent: ScanEvent | null;
   sendMessage: (msg: any) => void;
@@ -32,6 +34,7 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
+  const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, string>>({});
   const [lastAttendanceUpdate, setLastAttendanceUpdate] = useState<AttendanceRecord | null>(null);
   const [lastScanEvent, setLastScanEvent] = useState<ScanEvent | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -65,9 +68,16 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             userId: message.userId,
           });
         } else if (message.type === "device_status") {
-          // Update device connection state based on device_status message
-          // You may want to store a map of deviceId -> status if multiple devices
-          setIsConnected(message.status === 'online');
+          // Update device status map for multi-device support
+          setDeviceStatusMap(prev => ({
+            ...prev,
+            [message.deviceId]: message.status
+          }));
+          // Optionally, set global isConnected if any device is online
+          setIsConnected(Object.values({
+            ...deviceStatusMap,
+            [message.deviceId]: message.status
+          }).includes('online'));
         }
       } catch (err) {
         // Ignore parse errors
@@ -102,8 +112,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Helper to get a device's status
+  const getDeviceStatus = (deviceId: string) => deviceStatusMap[deviceId];
+
   return (
-    <WebSocketContext.Provider value={{ isConnected, lastAttendanceUpdate, lastScanEvent, sendMessage }}>
+    <WebSocketContext.Provider value={{ isConnected, deviceStatusMap, getDeviceStatus, lastAttendanceUpdate, lastScanEvent, sendMessage }}>
       {children}
     </WebSocketContext.Provider>
   );

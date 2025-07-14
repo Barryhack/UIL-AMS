@@ -97,6 +97,21 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
           welcomeSent = true
         }
         
+        // Broadcast device status updates to all web clients on status message
+        if (message.type === 'status' && ws.deviceId) {
+          clients.forEach(client => {
+            if (!client.deviceId && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'device_status',
+                deviceId: ws.deviceId,
+                status: message.data.status,
+                ...message.data
+              }))
+            }
+          })
+          console.log(`[BROADCAST] Device status: deviceId=${ws.deviceId}, status=${message.data.status}`);
+        }
+        
         // Relay device_command to hardware
         if (message.type === 'device_command' && message.deviceId) {
           const target = Array.from(clients).find(c => c.deviceId === message.deviceId && c.readyState === WebSocket.OPEN)
