@@ -19,7 +19,7 @@ export default function Error({
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="mb-8">
         <Image
-          src="/unilorin-logo.png"
+          src="/images/unilorin-logo.png"
           alt="University of Ilorin"
           width={80}
           height={80}

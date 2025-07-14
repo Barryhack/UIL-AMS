@@ -60,7 +60,7 @@ export function HardwareScanner({
       setIsScanning(true)
       setError(null)
       
-      if (!service.isConnected()) {
+      if (!service.isConnected) {
         throw new Error('Device not connected. Please check the hardware connection.')
       }
 
@@ -81,7 +81,7 @@ export function HardwareScanner({
     if (!service) return
 
     // Check initial connection status
-    const isConnected = service.isConnected()
+    const isConnected = service.isConnected
     setIsConnected(isConnected)
     
     if (!isConnected) {
@@ -185,7 +185,7 @@ export function HardwareScanner({
       console.log('Triggering startFingerprint in ENROLL mode', { mode, isConnected, isScanning, userId });
       // Only trigger once when the component first connects
       const timer = setTimeout(() => {
-        if (service.isConnected() && !isScanning) {
+        if (service.isConnected && !isScanning) {
           startFingerprint();
         }
       }, 1000); // Increased delay to ensure stable connection

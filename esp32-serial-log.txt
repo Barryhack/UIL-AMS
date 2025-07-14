@@ -1,0 +1,136 @@
+ESP32 Serial Monitor Log - Started at 2025-07-12T13:15:56.440Z
+[2025-07-12T13:15:56.469Z] .
+WiFi connected successfully!
+[2025-07-12T13:15:56.474Z] IP Address: 192.168.249.229
+[2025-07-12T13:15:56.590Z] E (7502) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:56.689Z] [Setup] Phase 3: WebSocket Connection
+[2025-07-12T13:15:56.716Z] [WebSocket] Minimal begin() using test sketch logic
+[2025-07-12T13:15:56.723Z] [Setup] Waiting for WebSocket connection...
+[2025-07-12T13:15:57.016Z] E (7929) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:57.317Z] E (8229) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:57.617Z] E (8529) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:57.918Z] E (8829) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:58.217Z] E (9129) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:58.516Z] E (9429) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:58.817Z] E (9729) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:15:58.842Z] [Setup] WebSocket connection attempt: 2s
+[2025-07-12T13:15:59.144Z] E (10056) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:01.081Z] E (11993) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:01.381Z] E (12293) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:01.680Z] E (12593) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:01.981Z] E (12893) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:02.280Z] E (13193) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:02.581Z] E (13493) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:02.881Z] E (13793) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:02.907Z] [Setup] WebSocket connection attempt: 6s
+[2025-07-12T13:16:03.209Z] E (14121) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:03.508Z] E (14421) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:03.809Z] E (14721) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:04.108Z] E (15021) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:04.409Z] E (15321) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:04.709Z] E (15621) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:04.714Z] [WebSocket] Connected to server!
+[2025-07-12T13:16:04.723Z] [WebSocket] Hello message sent!
+[2025-07-12T13:16:10.009Z] E (20922) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:10.014Z] [Setup] WebSocket connected successfully!
+[2025-07-12T13:16:10.236Z] E (21149) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:10.334Z] [Setup] Phase 4: Database Sync
+[2025-07-12T13:16:10.362Z] [Setup] Database sync initiated
+[2025-07-12T13:16:10.366Z] [Storage] Starting database sync from server...
+[2025-07-12T13:16:10.387Z] [Storage] Syncing users data...
+[2025-07-12T13:16:10.401Z] [Storage] Syncing course registrations...
+[2025-07-12T13:16:10.422Z] [Storage] Syncing RFID card mappings...
+[2025-07-12T13:16:10.450Z] [Storage] Syncing scheduled sessions...
+[2025-07-12T13:16:10.480Z] [Storage] Database sync completed successfully!
+[2025-07-12T13:16:10.490Z] [Setup] Database sync completed successfully
+[2025-07-12T13:16:10.608Z] E (21520) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:10.706Z] [Setup] Phase 5: HTTP Polling Setup
+[2025-07-12T13:16:10.710Z] [HTTP Polling] Initializing HTTP polling handler...
+[2025-07-12T13:16:10.715Z] [HTTP Polling] Handler initialized successfully!
+[2025-07-12T13:16:10.721Z] E (21630) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:10.728Z] [Setup] Phase 6: Ready for Attendance Operations
+[2025-07-12T13:16:10.737Z] Setup complete!
+[2025-07-12T13:16:11.255Z] E (22167) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:11.266Z] [WebSocket] Received: {"type":"connection","status":"connected","message":"Hardware device connected successfully (by hello)"}
+[2025-07-12T13:16:11.273Z] [CMD] Not a device_command, ignoring.
+[2025-07-12T13:16:11.404Z] E (22316) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:11.540Z] E (22453) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:11.678Z] E (22590) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:11.815Z] E (22727) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:11.951Z] E (22864) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.089Z] E (23001) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.226Z] E (23138) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.363Z] E (23275) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.500Z] E (23412) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.637Z] E (23549) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.774Z] E (23686) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:12.911Z] E (23823) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.048Z] E (23960) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.185Z] E (24097) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.322Z] E (24234) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.459Z] E (24371) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.595Z] E (24508) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.733Z] E (24645) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:13.869Z] E (24782) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.007Z] E (24919) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.144Z] E (25056) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.281Z] E (25193) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.417Z] E (25330) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.555Z] E (25467) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.691Z] E (25604) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.829Z] E (25741) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:14.965Z] E (25878) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.103Z] E (26015) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.239Z] E (26152) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.377Z] E (26289) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.514Z] E (26426) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.652Z] E (26563) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.788Z] E (26700) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:15.925Z] E (26837) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.062Z] E (26974) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.199Z] E (27111) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.336Z] E (27248) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.473Z] E (27385) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.610Z] E (27522) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.747Z] E (27659) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:16.884Z] E (27796) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.022Z] E (27933) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.158Z] E (28070) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.295Z] E (28207) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.432Z] E (28344) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.569Z] E (28481) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.706Z] E (28618) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.843Z] E (28755) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:17.980Z] E (28892) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.117Z] E (29029) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.255Z] E (29166) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.391Z] E (29303) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.527Z] E (29440) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.665Z] E (29577) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.802Z] E (29714) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:18.939Z] E (29851) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.077Z] E (29988) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.215Z] E (30126) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.351Z] E (30263) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.488Z] E (30400) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.625Z] E (30537) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.762Z] E (30674) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:19.898Z] E (30811) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.037Z] E (30948) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.246Z] E (31085) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.325Z] E (31222) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.464Z] E (31359) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.584Z] E (31496) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.722Z] E (31633) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.857Z] E (31770) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:20.995Z] E (31907) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.132Z] E (32044) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.269Z] E (32181) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.407Z] E (32318) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.544Z] E (32455) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.679Z] E (32592) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:21.816Z] E (32729) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:22.001Z] E (32866) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:22.136Z] E (33003) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:22.269Z] E (33140) task_wdt: esp_task_wdt_reset(705): task not found
+[2025-07-12T13:16:22.376Z] E (33277) task_wdt: esp_task_wdt_reset(705): task not found

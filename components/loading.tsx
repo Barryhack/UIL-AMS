@@ -5,7 +5,7 @@ export function Loading() {
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="relative mb-4">
         <Image
-          src="/unilorin-logo.png"
+          src="/images/unilorin-logo.png"
           alt="University of Ilorin"
           width={60}
           height={60}
