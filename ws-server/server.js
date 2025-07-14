@@ -28,6 +28,8 @@ console.log('PORT ENV:', process.env.PORT);
 // Track connected devices
 const connectedDevices = new Map();
 const webClients = new Set();
+// Track latest status for each device
+const deviceStatusMap = new Map();
 
 wss.on('connection', (ws, req) => {
   const parsedUrl = url.parse(req.url, true);
@@ -53,31 +55,56 @@ wss.on('connection', (ws, req) => {
           isHardware = true;
           thisDeviceId = data.deviceId;
           connectedDevices.set(thisDeviceId, {
-      ws,
+            ws,
             macAddress: data.macAddress || 'unknown',
-      lastSeen: Date.now(),
-      type: 'hardware'
-    });
+            lastSeen: Date.now(),
+            type: 'hardware'
+          });
           webClients.delete(ws);
           console.log(`✅ Hardware device ${thisDeviceId} identified by hello message`);
-    ws.send(JSON.stringify({
-      type: 'connection',
-      status: 'connected',
+          ws.send(JSON.stringify({
+            type: 'connection',
+            status: 'connected',
             message: 'Hardware device connected successfully (by hello)'
-    }));
-  } else {
-    webClients.add(ws);
-    console.log(`🌐 Web client connected (total: ${webClients.size})`);
-    ws.send(JSON.stringify({
-      type: 'connection',
-      status: 'connected',
-      message: 'Web client connected successfully'
-    }));
-  }
+          }));
+        } else {
+          webClients.add(ws);
+          console.log(`🌐 Web client connected (total: ${webClients.size})`);
+          ws.send(JSON.stringify({
+            type: 'connection',
+            status: 'connected',
+            message: 'Web client connected successfully'
+          }));
+          // Send latest status of all devices to this web client
+          deviceStatusMap.forEach((statusMsg, devId) => {
+            ws.send(JSON.stringify({
+              type: 'device_status',
+              ...statusMsg
+            }));
+            console.log(`[SEND] device_status to new web client: deviceId=${devId}, status=${statusMsg.status}`);
+          });
+        }
         welcomeSent = true;
         return;
       }
       // Handle different message types
+      // Handle device status messages
+      if (data.type === 'status' && isHardware && thisDeviceId) {
+        // Update the device status map
+        deviceStatusMap.set(thisDeviceId, {
+          deviceId: thisDeviceId,
+          status: data.status || (data.data && data.data.status) || 'online',
+          ...(data.data || {})
+        });
+        // Broadcast to all web clients
+        broadcastToWebClients({
+          type: 'device_status',
+          deviceId: thisDeviceId,
+          status: data.status || (data.data && data.data.status) || 'online',
+          ...(data.data || {})
+        });
+        console.log(`[BROADCAST] device_status: deviceId=${thisDeviceId}, status=${data.status || (data.data && data.data.status) || 'online'}`);
+      }
       if (data.type === 'attendance_record') {
         broadcastToWebClients({
           type: 'attendance_update',
