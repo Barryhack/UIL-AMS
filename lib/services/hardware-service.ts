@@ -204,6 +204,12 @@ class HardwareService extends EventEmitter {
       data: { userId }
     });
   }
+
+  // Add a testConnection method for compatibility with HardwareScanner
+  testConnection(): Promise<boolean> {
+    // For now, just resolve true. You can expand this to actually test the connection if needed.
+    return Promise.resolve(true);
+  }
 }
 
 export const hardwareService = new HardwareService(); 
