@@ -132,7 +132,7 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
 
   return (
     <Dialog open={open} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl" style={{ maxWidth: '100vw', width: '100%' }}>
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>Edit all user details below.</DialogDescription>
