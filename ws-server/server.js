@@ -105,6 +105,16 @@ wss.on('connection', (ws, req) => {
         });
         console.log(`[BROADCAST] device_status: deviceId=${thisDeviceId}, status=${data.status || (data.data && data.data.status) || 'online'}`);
       }
+      // Handle device_command messages from web clients
+      if (data.type === 'device_command' && data.deviceId) {
+        const device = connectedDevices.get(data.deviceId);
+        if (device && device.ws.readyState === WebSocket.OPEN) {
+          device.ws.send(JSON.stringify(data));
+          console.log(`[FORWARD] device_command to device ${data.deviceId}:`, data);
+        } else {
+          console.log(`[ERROR] Device ${data.deviceId} not connected for command:`, data);
+        }
+      }
       if (data.type === 'attendance_record') {
         broadcastToWebClients({
           type: 'attendance_update',
