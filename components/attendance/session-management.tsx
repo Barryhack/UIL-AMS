@@ -216,7 +216,7 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
                             <SelectTrigger><SelectValue placeholder="Select from a pre-defined schedule" /></SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {course.schedules.map((schedule) => (
+                            {(course?.schedules ?? []).map((schedule) => (
                               <SelectItem key={schedule.id} value={schedule.id}>
                                 {schedule.day} • {schedule.startTime}-{schedule.endTime} • {schedule.venue}
                               </SelectItem>
