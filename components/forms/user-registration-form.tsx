@@ -407,6 +407,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
           <BiometricEnrollmentForm
             userId={createdUserId!}
             userName={form.getValues("firstName") + " " + form.getValues("lastName")}
+            deviceId={form.getValues("deviceId")}
             onComplete={() => {
               toast.success("Biometric enrollment complete!");
               onClose();

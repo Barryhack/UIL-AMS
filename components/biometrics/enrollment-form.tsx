@@ -12,11 +12,12 @@ import { useEffect } from "react"
 interface EnrollmentFormProps {
   userId: string
   userName: string
+  deviceId: string // NEW: require deviceId
   onComplete: () => void
   onCancel: () => void
 }
 
-export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel }: EnrollmentFormProps) {
+export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete, onCancel }: EnrollmentFormProps) {
   const { toast } = useToast()
   const { lastEnrollmentResult, sendMessage } = useWebSocketContext()
   const [step, setStep] = useState<"idle" | "fingerprint" | "rfid" | "complete">("idle")
@@ -59,8 +60,18 @@ export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel
     setStep("fingerprint")
     setIsLoading(true)
     setError(null)
-    console.log('[BiometricEnrollmentForm] Sending enroll command for fingerprint', { userId });
-    sendMessage({ type: "enroll", method: "fingerprint", userId })
+    if (!deviceId) {
+      setError("No device selected for enrollment.");
+      setIsLoading(false);
+      return;
+    }
+    console.log('[BiometricEnrollmentForm] Sending device_command for enroll_fingerprint', { deviceId, userId });
+    sendMessage({
+      type: "device_command",
+      deviceId,
+      command: "enroll_fingerprint",
+      data: { userId }
+    });
   }
 
   // Start RFID scan via WebSocket
@@ -68,8 +79,18 @@ export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel
     setStep("rfid")
     setIsLoading(true)
     setError(null)
-    console.log('[BiometricEnrollmentForm] Sending enroll command for rfid', { userId });
-    sendMessage({ type: "enroll", method: "rfid", userId })
+    if (!deviceId) {
+      setError("No device selected for enrollment.");
+      setIsLoading(false);
+      return;
+    }
+    console.log('[BiometricEnrollmentForm] Sending device_command for enroll_rfid', { deviceId, userId });
+    sendMessage({
+      type: "device_command",
+      deviceId,
+      command: "enroll_rfid",
+      data: { userId }
+    });
   }
 
   const completeEnrollment = async () => {

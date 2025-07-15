@@ -236,6 +236,7 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
           <BiometricEnrollmentForm
             userId={form.id || user.id}
             userName={form.name || user.name}
+            deviceId={form.deviceId || user.deviceId}
             onComplete={() => {
               toast.success('Biometric data updated!');
             }}
