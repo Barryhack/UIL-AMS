@@ -90,12 +90,13 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
       console.error('[BiometricEnrollmentForm] No deviceId provided for RFID scan');
       return;
     }
-    console.log('[BiometricEnrollmentForm] Sending device_command for enroll_rfid', { deviceId, userId });
+    // IMPORTANT: Use 'rfid_scan' as the command, matching the device sketch
+    console.log('[BiometricEnrollmentForm] Sending device_command for rfid_scan', { deviceId, userId });
     sendMessage({
       type: "device_command",
       deviceId,
-      command: "enroll_rfid",
-      data: { userId }
+      command: "rfid_scan",
+      data: { userId },
     });
   }
 
