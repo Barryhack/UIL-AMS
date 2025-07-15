@@ -59,6 +59,7 @@ export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel
     setStep("fingerprint")
     setIsLoading(true)
     setError(null)
+    console.log('[BiometricEnrollmentForm] Sending enroll command for fingerprint', { userId });
     sendMessage({ type: "enroll", method: "fingerprint", userId })
   }
 
@@ -67,6 +68,7 @@ export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel
     setStep("rfid")
     setIsLoading(true)
     setError(null)
+    console.log('[BiometricEnrollmentForm] Sending enroll command for rfid', { userId });
     sendMessage({ type: "enroll", method: "rfid", userId })
   }
 
