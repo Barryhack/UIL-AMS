@@ -243,21 +243,21 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
                     : "Place the RFID card/tag on the RFID reader to register it."}
                 </p>
                 {!rfidData ? (
-                  <Button
-                    className="w-full"
+                <Button
+                  className="w-full"
                     variant="outline"
-                    onClick={startRfidScan}
+                  onClick={startRfidScan}
                     disabled={isLoading || step === "fingerprint"}
-                  >
-                    {isLoading && step === "rfid" ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Scanning...
-                      </>
-                    ) : (
-                      "Start RFID Scan"
-                    )}
-                  </Button>
+                >
+                  {isLoading && step === "rfid" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    "Start RFID Scan"
+                  )}
+                </Button>
                 ) : (
                   <div className="flex flex-col gap-2">
                     <Button

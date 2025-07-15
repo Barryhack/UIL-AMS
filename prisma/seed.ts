@@ -6,10 +6,10 @@ const prisma = new PrismaClient()
 async function main() {
   // Only clean the database in development
   if (process.env.NODE_ENV !== "production") {
-    await prisma.attendance.deleteMany()
-    await prisma.courseEnrollment.deleteMany()
-    await prisma.course.deleteMany()
-    await prisma.user.deleteMany()
+  await prisma.attendance.deleteMany()
+  await prisma.courseEnrollment.deleteMany()
+  await prisma.course.deleteMany()
+  await prisma.user.deleteMany()
   }
 
   // Create test users with proper password hashing
@@ -64,24 +64,24 @@ async function main() {
   let course = await prisma.course.findUnique({ where: { code: 'CPT401' } })
   if (!course && lecturer) {
     course = await prisma.course.create({
-      data: {
-        code: 'CPT401',
-        title: 'Software Engineering',
-        description: 'Introduction to Software Engineering principles and practices',
-        units: 3,
-        faculty: 'Engineering',
-        department: 'Computer Engineering',
-        level: '400',
-        semester: '1',
-        academicYear: '2023/2024',
-        maxCapacity: 100,
-        lecturer: {
-          connect: {
+    data: {
+      code: 'CPT401',
+      title: 'Software Engineering',
+      description: 'Introduction to Software Engineering principles and practices',
+      units: 3,
+      faculty: 'Engineering',
+      department: 'Computer Engineering',
+      level: '400',
+      semester: '1',
+      academicYear: '2023/2024',
+      maxCapacity: 100,
+      lecturer: {
+        connect: {
             id: lecturer.id
-          }
         }
-      },
-    })
+      }
+    },
+  })
   }
 
   if (course && student) {
@@ -89,26 +89,26 @@ async function main() {
       where: { courseId: course.id, studentId: student.id }
     })
     if (!existingEnrollment) {
-      await prisma.courseEnrollment.create({
-        data: {
-          courseId: course.id,
+  await prisma.courseEnrollment.create({
+    data: {
+      courseId: course.id,
           studentId: student.id,
-          status: 'ACTIVE',
-        },
-      })
+      status: 'ACTIVE',
+    },
+  })
     }
     const existingAttendance = await prisma.attendance.findFirst({
       where: { courseId: course.id, studentId: student.id }
     })
     if (!existingAttendance) {
-      await prisma.attendance.create({
-        data: {
-          courseId: course.id,
+  await prisma.attendance.create({
+    data: {
+      courseId: course.id,
           studentId: student.id,
-          date: new Date(),
-          status: 'PRESENT',
-        },
-      })
+      date: new Date(),
+      status: 'PRESENT',
+    },
+  })
     }
   }
 

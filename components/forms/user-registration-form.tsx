@@ -410,8 +410,8 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
             deviceId={form.getValues("deviceId")}
             onComplete={() => {
               toast.success("Biometric enrollment complete!");
-              onClose();
-            }}
+                  onClose();
+                }}
             onCancel={() => {
               setRegistrationStep(1);
             }}

@@ -13,7 +13,7 @@ const hostname = 'localhost';
 app.prepare().then(() => {
   // --- HTTP Server for the Next.js App and WebSocket (Single Port) ---
   const httpServer = createHttpServer((req, res) => {
-    const parsedUrl = parse(req.url, true);
+      const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
   });
 
@@ -44,9 +44,9 @@ app.prepare().then(() => {
         deviceClients.delete(deviceId);
         console.log(`Hardware device disconnected: ${deviceId} (ws)`);
       });
-    } else {
+      } else {
       // Web client
-      webClients.add(ws);
+        webClients.add(ws);
       console.log('Web client connected (ws)');
       ws.send(JSON.stringify({ type: 'welcome', message: 'Connected to UNILORIN AMS WebSocket server (web)' }));
       ws.on('message', (message) => {
@@ -63,7 +63,7 @@ app.prepare().then(() => {
               console.log(`Device ${targetDeviceId} not connected or not ready.`);
               ws.send(JSON.stringify({ type: 'error', message: `Device ${targetDeviceId} is not connected.` }));
             }
-          } else {
+              } else {
             console.log(`Command received without target deviceId or device not found.`);
           }
         } catch (e) {
@@ -71,7 +71,7 @@ app.prepare().then(() => {
         }
       });
       ws.on('close', () => {
-        webClients.delete(ws);
+          webClients.delete(ws);
         console.log('Web client disconnected (ws)');
       });
     }

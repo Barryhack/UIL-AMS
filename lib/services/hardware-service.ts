@@ -41,7 +41,7 @@ class HardwareService extends EventEmitter {
           description: `Command ${command.type} sent to device ${command.deviceId} (WebSocket)`,
         });
         return true;
-      } catch (error) {
+    } catch (error) {
         console.error('[Hardware Service] Failed to send command via WebSocket:', error);
         toast({
           title: "Command Failed",
@@ -111,7 +111,7 @@ class HardwareService extends EventEmitter {
     const wsUrl = `${API_BASE.replace('https://', 'wss://').replace('http://', 'ws://')}/api/ws`;
     console.log('[Hardware Service] Connecting to WebSocket:', wsUrl);
 
-    this.ws = new WebSocket(wsUrl);
+      this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
       this.isConnected = true;
@@ -125,22 +125,22 @@ class HardwareService extends EventEmitter {
     };
 
         this.ws.onmessage = (event) => {
-      try {
+          try {
         const data = JSON.parse(event.data);
         console.log('[Hardware Service] WebSocket message received:', data);
         onMessage(data);
-      } catch (error) {
+          } catch (error) {
         console.error('[Hardware Service] Failed to parse WebSocket message:', error);
-      }
+          }
     };
 
-    this.ws.onclose = () => {
+        this.ws.onclose = () => {
       this.isConnected = false;
       console.log('[Hardware Service] WebSocket disconnected');
       this.scheduleReconnect(onMessage);
     };
 
-    this.ws.onerror = (error) => {
+        this.ws.onerror = (error) => {
       console.error('[Hardware Service] WebSocket error:', error);
     };
   }

@@ -155,6 +155,9 @@ wss.on('connection', (ws, req) => {
           data: data.rfidUid || data.data || '',
           userId: data.userId || null
         });
+      } else if (data.type === 'enroll_result') {
+        console.log(`[BROADCAST] enroll_result to web clients:`, data);
+        broadcastToWebClients(data);
       }
     } catch (error) {
       console.error('❌ Error parsing message:', error);

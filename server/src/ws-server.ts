@@ -130,6 +130,17 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
           console.log(`[BROADCAST] Device status: deviceId=${ws.deviceId}, status=${message.data.status}`);
         }
         
+        // Broadcast enroll_result to all web clients
+        if (message.type === 'enroll_result') {
+          clients.forEach(client => {
+            if (!client.deviceId && client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify(message));
+              console.log(`[SEND] enroll_result to web client: userId=${message.userId}, success=${message.success}, fingerprintId=${message.fingerprintId}`);
+            }
+          });
+          return;
+        }
+        
         // Relay device_command to hardware
         if (message.type === 'device_command' && message.deviceId) {
           const target = Array.from(clients).find(c => c.deviceId === message.deviceId && c.readyState === WebSocket.OPEN)
