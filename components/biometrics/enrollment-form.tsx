@@ -23,8 +23,8 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
   const [step, setStep] = useState<"idle" | "fingerprint" | "rfid" | "complete">("idle")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [fingerprintData, setFingerprintData] = useState<string | null>(null)
-  const [rfidData, setRfidData] = useState<string | null>(null)
+  const [fingerprintData, setFingerprintData] = useState<string | undefined>(undefined)
+  const [rfidData, setRfidData] = useState<string | undefined>(undefined)
 
   // Listen for real-time enrollment results
   useEffect(() => {
@@ -80,12 +80,14 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
 
   // Start RFID scan via WebSocket
   const startRfidScan = async () => {
+    console.log('[BiometricEnrollmentForm] RFID scan button clicked');
     setStep("rfid")
     setIsLoading(true)
     setError(null)
     if (!deviceId) {
       setError("No device selected for enrollment.");
       setIsLoading(false);
+      console.error('[BiometricEnrollmentForm] No deviceId provided for RFID scan');
       return;
     }
     console.log('[BiometricEnrollmentForm] Sending device_command for enroll_rfid', { deviceId, userId });
@@ -95,6 +97,13 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
       command: "enroll_rfid",
       data: { userId }
     });
+  }
+
+  // Add a function to clear RFID data and allow rescanning
+  const clearRfidData = () => {
+    setRfidData(undefined);
+    setStep("idle");
+    setError(null);
   }
 
   const completeEnrollment = async () => {
@@ -232,26 +241,42 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
                     ? "RFID successfully captured."
                     : "Place the RFID card/tag on the RFID reader to register it."}
                 </p>
-                <Button
-                  className="w-full"
-                  variant={rfidData ? "default" : "outline"}
-                  onClick={startRfidScan}
-                  disabled={isLoading || !!rfidData || step === "fingerprint"}
-                >
-                  {isLoading && step === "rfid" ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Scanning...
-                    </>
-                  ) : rfidData ? (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Captured
-                    </>
-                  ) : (
-                    "Start RFID Scan"
-                  )}
-                </Button>
+                {!rfidData ? (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={startRfidScan}
+                    disabled={isLoading || step === "fingerprint"}
+                  >
+                    {isLoading && step === "rfid" ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : (
+                      "Start RFID Scan"
+                    )}
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      className="w-full"
+                      variant="default"
+                      onClick={startRfidScan}
+                      disabled={isLoading || step === "fingerprint"}
+                    >
+                      Rescan RFID
+                    </Button>
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={clearRfidData}
+                      disabled={isLoading}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </>
