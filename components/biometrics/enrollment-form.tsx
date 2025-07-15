@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+import { useWebSocketContext } from "@/lib/websocket-context"
+import { useEffect } from "react"
 
 interface EnrollmentFormProps {
   userId: string
@@ -16,62 +18,56 @@ interface EnrollmentFormProps {
 
 export function BiometricEnrollmentForm({ userId, userName, onComplete, onCancel }: EnrollmentFormProps) {
   const { toast } = useToast()
+  const { lastEnrollmentResult, sendMessage } = useWebSocketContext()
   const [step, setStep] = useState<"idle" | "fingerprint" | "rfid" | "complete">("idle")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fingerprintData, setFingerprintData] = useState<string | null>(null)
   const [rfidData, setRfidData] = useState<string | null>(null)
 
-  // In a real implementation, these functions would communicate with the ESP32 device
-  // to capture fingerprint and RFID data
+  // Listen for real-time enrollment results
+  useEffect(() => {
+    if (!lastEnrollmentResult) return;
+    if (lastEnrollmentResult.method === "fingerprint" && step === "fingerprint") {
+      setIsLoading(false)
+      if (lastEnrollmentResult.success) {
+        setFingerprintData(lastEnrollmentResult.data?.template || "")
+        toast({
+          title: "Fingerprint captured",
+          description: lastEnrollmentResult.message || "Fingerprint scan completed successfully.",
+        })
+      } else {
+        setError(lastEnrollmentResult.message || "Failed to capture fingerprint.")
+      }
+    } else if (lastEnrollmentResult.method === "rfid" && step === "rfid") {
+      setIsLoading(false)
+      if (lastEnrollmentResult.success) {
+        setRfidData(lastEnrollmentResult.data?.uid || "")
+        toast({
+          title: "RFID captured",
+          description: lastEnrollmentResult.message || "RFID scan completed successfully.",
+        })
+      } else {
+        setError(lastEnrollmentResult.message || "Failed to capture RFID.")
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastEnrollmentResult])
+
+  // Start fingerprint scan via WebSocket
   const startFingerprintScan = async () => {
     setStep("fingerprint")
     setIsLoading(true)
     setError(null)
-
-    try {
-      // Simulate fingerprint scanning
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-
-      // In a real implementation, this would be the data from the fingerprint scanner
-      const mockFingerprintData = "FINGERPRINT_DATA_" + Math.floor(100000 + Math.random() * 900000)
-      setFingerprintData(mockFingerprintData)
-
-      toast({
-        title: "Fingerprint captured",
-        description: "Fingerprint scan completed successfully.",
-      })
-
-      setIsLoading(false)
-    } catch (err) {
-      setError("Failed to capture fingerprint. Please try again.")
-      setIsLoading(false)
-    }
+    sendMessage({ type: "enroll", method: "fingerprint", userId })
   }
 
+  // Start RFID scan via WebSocket
   const startRfidScan = async () => {
     setStep("rfid")
     setIsLoading(true)
     setError(null)
-
-    try {
-      // Simulate RFID scanning
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // In a real implementation, this would be the data from the RFID reader
-      const mockRfidData = "RFID_" + Math.floor(1000000000 + Math.random() * 9000000000)
-      setRfidData(mockRfidData)
-
-      toast({
-        title: "RFID captured",
-        description: "RFID scan completed successfully.",
-      })
-
-      setIsLoading(false)
-    } catch (err) {
-      setError("Failed to capture RFID. Please try again.")
-      setIsLoading(false)
-    }
+    sendMessage({ type: "enroll", method: "rfid", userId })
   }
 
   const completeEnrollment = async () => {

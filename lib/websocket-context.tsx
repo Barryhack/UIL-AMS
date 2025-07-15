@@ -27,6 +27,7 @@ interface WebSocketContextType {
   getDeviceStatus: (deviceId: string) => string | undefined;
   lastAttendanceUpdate: AttendanceRecord | null;
   lastScanEvent: ScanEvent | null;
+  lastEnrollmentResult: any | null;
   sendMessage: (msg: any) => void;
 }
 
@@ -37,6 +38,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const [deviceStatusMap, setDeviceStatusMap] = useState<Record<string, string>>({});
   const [lastAttendanceUpdate, setLastAttendanceUpdate] = useState<AttendanceRecord | null>(null);
   const [lastScanEvent, setLastScanEvent] = useState<ScanEvent | null>(null);
+  const [lastEnrollmentResult, setLastEnrollmentResult] = useState<any | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectDelay = 5000;
@@ -78,6 +80,8 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             ...deviceStatusMap,
             [message.deviceId]: message.status
           }).includes('online'));
+        } else if (message.type === "enroll_result") {
+          setLastEnrollmentResult(message);
         }
       } catch (err) {
         // Ignore parse errors
@@ -116,7 +120,7 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const getDeviceStatus = (deviceId: string) => deviceStatusMap[deviceId];
 
   return (
-    <WebSocketContext.Provider value={{ isConnected, deviceStatusMap, getDeviceStatus, lastAttendanceUpdate, lastScanEvent, sendMessage }}>
+    <WebSocketContext.Provider value={{ isConnected, deviceStatusMap, getDeviceStatus, lastAttendanceUpdate, lastScanEvent, lastEnrollmentResult, sendMessage }}>
       {children}
     </WebSocketContext.Provider>
   );
