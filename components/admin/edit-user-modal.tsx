@@ -16,7 +16,7 @@ import { faculties } from "@/lib/constants/faculties";
 import { toast } from "sonner";
 import { Scan, Fingerprint, CreditCard } from "lucide-react";
 import { HardwareScanner } from "../forms/HardwareScanner";
-import { BiometricScanner } from "@/components/biometrics/biometric-scanner";
+import { BiometricEnrollmentForm } from "@/components/biometrics/enrollment-form";
 
 export interface EditUserModalProps {
   user: any;
@@ -82,27 +82,6 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
 
   const handleRoleChange = (role: string) => {
     setForm((prev) => ({ ...prev, role }));
-  };
-
-  const handleFingerprintScanned = (fingerprintId: string) => {
-    setForm((prev: Record<string, any>) => ({ ...prev, fingerprintId }));
-    setScanMode(null);
-    setScanningType(null);
-    toast.success('Fingerprint scanned successfully!');
-  };
-
-  const handleRFIDScanned = (rfidUid: string) => {
-    setForm((prev: Record<string, any>) => ({ ...prev, rfidUid }));
-    setScanMode(null);
-    setScanningType(null);
-    toast.success('RFID card scanned successfully!');
-  };
-
-  const handleFingerprintEnrolled = (fingerprintId: string) => {
-    setForm((prev: Record<string, any>) => ({ ...prev, fingerprintId }));
-    setScanMode(null);
-    setScanningType(null);
-    toast.success('Fingerprint enrolled successfully!');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,15 +233,10 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
           </div>
           
           {/* Biometric Section */}
-          <BiometricScanner
+          <BiometricEnrollmentForm
             userId={form.id || user.id}
             userName={form.name || user.name}
-            onComplete={({ fingerprintData, rfidData }) => {
-              setForm((prev: Record<string, any>) => ({
-                ...prev,
-                fingerprintId: fingerprintData || prev.fingerprintId,
-                rfidUid: rfidData || prev.rfidUid,
-              }));
+            onComplete={() => {
               toast.success('Biometric data updated!');
             }}
             onCancel={() => {}}

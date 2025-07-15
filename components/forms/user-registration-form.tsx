@@ -28,7 +28,7 @@ import { faculties } from "@/lib/constants/faculties"
 import { userRegistrationSchema, type UserRegistrationData } from "@/lib/schemas/user"
 import { HardwareScanner } from "./HardwareScanner"
 import { useWebSocketContext } from "@/lib/websocket-context"
-import { BiometricScanner } from "@/components/biometrics/biometric-scanner";
+import { BiometricEnrollmentForm } from "@/components/biometrics/enrollment-form";
 
 interface UserRegistrationFormProps {
   open: boolean
@@ -404,77 +404,17 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
             </Card>
           </form>
         ) : (
-          // Step 2: Biometric Registration
-          <div className="space-y-4">
-            <div className="text-center">
-              <h3 className="text-lg font-medium">Biometric Registration</h3>
-              <p className="text-sm text-gray-500">Please scan the user's fingerprint and RFID card.</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setCurrentUserId(createdUserId);
-                  setScanMode('ENROLL');
-                }}
-                className="w-full"
-              >
-                <Fingerprint className="mr-2 h-4 w-4" />
-                {biometricData ? "Rescan Fingerprint" : "Scan Fingerprint"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setCurrentUserId(createdUserId);
-                  setScanMode('ENROLL');
-                }}
-                className="w-full"
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                {rfidData ? "Rescan RFID Card" : "Scan RFID Card"}
-              </Button>
-            </div>
-            
-            {(biometricData && rfidData) && (
-              <Button
-                type="button"
-                className="w-full"
-                onClick={() => {
-                  toast.success("User registration complete!");
-                  onClose();
-                }}
-              >
-                Finish Registration
-              </Button>
-            )}
-          </div>
-        )}
-
-        {scanMode && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-            <div className="bg-white p-6 rounded-lg w-96 relative z-[10000]">
-              <h2 className="text-lg font-semibold mb-4">
-                {scanMode === 'SCAN' ? 'Scan RFID Card' : 'Enroll Fingerprint'}
-              </h2>
-              <HardwareScanner
-                mode={scanMode}
-                userId={currentUserId || undefined}
-                onRFIDScanned={handleRFIDScanned}
-                onFingerprintScanned={handleFingerprintScanned}
-                onFingerprintEnrolled={handleFingerprintEnrolled}
-              />
-              <Button
-                variant="outline"
-                className="mt-4 w-full"
-                onClick={() => setScanMode(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
+          <BiometricEnrollmentForm
+            userId={createdUserId!}
+            userName={form.getValues("firstName") + " " + form.getValues("lastName")}
+            onComplete={() => {
+              toast.success("Biometric enrollment complete!");
+              onClose();
+            }}
+            onCancel={() => {
+              setRegistrationStep(1);
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>
