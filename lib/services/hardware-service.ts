@@ -203,7 +203,8 @@ class HardwareService extends EventEmitter {
   async enrollFingerprint(deviceId: string, userId: string): Promise<boolean> {
     return this.sendDeviceCommand({
       deviceId,
-      type: 'fingerprint_enroll',
+      type: 'device_command',
+      command: 'enroll_fingerprint',
       data: { userId }
     });
   }
