@@ -13,7 +13,7 @@ interface EnrollmentFormProps {
   userId: string
   userName: string
   deviceId: string // NEW: require deviceId
-  onComplete: () => void
+  onComplete: (data: { fingerprintData?: string; rfidData?: string }) => void
   onCancel: () => void
 }
 
@@ -37,6 +37,8 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
           title: "Fingerprint captured",
           description: lastEnrollmentResult.message || "Fingerprint scan completed successfully.",
         })
+        // Call onComplete with updated data
+        onComplete({ fingerprintData: lastEnrollmentResult.data?.template || "", rfidData });
       } else {
         setError(lastEnrollmentResult.message || "Failed to capture fingerprint.")
       }
@@ -48,6 +50,8 @@ export function BiometricEnrollmentForm({ userId, userName, deviceId, onComplete
           title: "RFID captured",
           description: lastEnrollmentResult.message || "RFID scan completed successfully.",
         })
+        // Call onComplete with updated data
+        onComplete({ fingerprintData, rfidData: lastEnrollmentResult.data?.uid || "" });
       } else {
         setError(lastEnrollmentResult.message || "Failed to capture RFID.")
       }

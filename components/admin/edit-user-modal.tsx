@@ -237,7 +237,12 @@ export function EditUserModal({ user, open, onClose, onSave }: EditUserModalProp
             userId={form.id || user.id}
             userName={form.name || user.name}
             deviceId={form.deviceId || user.deviceId}
-            onComplete={() => {
+            onComplete={({ fingerprintData, rfidData }) => {
+              setForm((prev: any) => ({
+                ...prev,
+                fingerprintId: fingerprintData || prev.fingerprintId,
+                rfidUid: rfidData || prev.rfidUid,
+              }));
               toast.success('Biometric data updated!');
             }}
             onCancel={() => {}}
