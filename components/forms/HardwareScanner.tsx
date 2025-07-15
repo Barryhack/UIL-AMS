@@ -68,7 +68,7 @@ export function HardwareScanner({
 
       if (mode === 'ENROLL' && userId) {
         console.log('Calling enrollFingerprint', { userId, deviceId });
-        await service.enrollFingerprint(userId, deviceId)
+        await service.enrollFingerprint(deviceId, userId)
       } else {
         console.log('Calling scanFingerprint', { userId, deviceId });
         await service.scanFingerprint(userId || "", deviceId)
