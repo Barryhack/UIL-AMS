@@ -69,11 +69,11 @@ export function BiometricScanner({ userId, userName, onComplete, onCancel }: Bio
     setError(null);
     startScanTimeout();
     try {
-      const result = await service?.scanFingerprint(userId, deviceId);
-      console.log('[BiometricScanner] scanFingerprint result:', result);
+      const result = await service?.enrollFingerprint(deviceId, userId);
+      console.log('[BiometricScanner] enrollFingerprint result:', result);
     } catch (err) {
-      console.error('[BiometricScanner] Error in scanFingerprint:', err);
-      setError("Failed to start fingerprint scan. Please try again.");
+      console.error('[BiometricScanner] Error in enrollFingerprint:', err);
+      setError("Failed to start fingerprint enrollment. Please try again.");
       setIsLoading(false);
       setStep("idle");
     }

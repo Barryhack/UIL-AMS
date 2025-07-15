@@ -429,7 +429,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                 variant="outline"
                 onClick={() => {
                   setCurrentUserId(createdUserId);
-                  setScanMode('SCAN');
+                  setScanMode('ENROLL');
                 }}
                 className="w-full"
               >
