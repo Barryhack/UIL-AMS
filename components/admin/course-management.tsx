@@ -355,7 +355,7 @@ export function CourseManagement({ courses }: CourseManagementProps) {
                   <TableCell>{course.title}</TableCell>
                   <TableCell>{course.department}</TableCell>
                   <TableCell>{course.lecturer.name}</TableCell>
-                  <TableCell>{course.enrollments.length}</TableCell>
+                  <TableCell>{(course.enrollments ?? []).length}</TableCell>
                   <TableCell className="space-x-2">
                     <Button 
                       variant="outline" 
