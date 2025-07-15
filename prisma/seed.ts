@@ -4,11 +4,13 @@ import { hash } from 'bcrypt'
 const prisma = new PrismaClient()
 
 async function main() {
-  // Clean the database
-  await prisma.attendance.deleteMany()
-  await prisma.courseEnrollment.deleteMany()
-  await prisma.course.deleteMany()
-  await prisma.user.deleteMany()
+  // Only clean the database in development
+  if (process.env.NODE_ENV !== "production") {
+    await prisma.attendance.deleteMany()
+    await prisma.courseEnrollment.deleteMany()
+    await prisma.course.deleteMany()
+    await prisma.user.deleteMany()
+  }
 
   // Create test users with proper password hashing
   const password = await hash('password123', 10)
@@ -55,47 +57,62 @@ async function main() {
     },
   })
 
-  // Create a course
-  const course = await prisma.course.create({
-    data: {
-      code: 'CPT401',
-      title: 'Software Engineering',
-      description: 'Introduction to Software Engineering principles and practices',
-      units: 3,
-      faculty: 'Engineering',
-      department: 'Computer Engineering',
-      level: '400',
-      semester: '1',
-      academicYear: '2023/2024',
-      maxCapacity: 100,
-      lecturer: {
-        connect: {
-          email: 'lecturer@unilorin.edu.ng'
+  // Only create test course/enrollment/attendance if not already present
+  const lecturer = await prisma.user.findUnique({ where: { email: 'lecturer@unilorin.edu.ng' } })
+  const student = await prisma.user.findUnique({ where: { email: 'student@unilorin.edu.ng' } })
+
+  let course = await prisma.course.findUnique({ where: { code: 'CPT401' } })
+  if (!course && lecturer) {
+    course = await prisma.course.create({
+      data: {
+        code: 'CPT401',
+        title: 'Software Engineering',
+        description: 'Introduction to Software Engineering principles and practices',
+        units: 3,
+        faculty: 'Engineering',
+        department: 'Computer Engineering',
+        level: '400',
+        semester: '1',
+        academicYear: '2023/2024',
+        maxCapacity: 100,
+        lecturer: {
+          connect: {
+            id: lecturer.id
+          }
         }
-      }
-    },
-  })
+      },
+    })
+  }
 
-  // Create course enrollment
-  await prisma.courseEnrollment.create({
-    data: {
-      courseId: course.id,
-      studentId: (await prisma.user.findFirst({ where: { email: 'student@unilorin.edu.ng' } })).id,
-      status: 'ACTIVE',
-    },
-  })
+  if (course && student) {
+    const existingEnrollment = await prisma.courseEnrollment.findFirst({
+      where: { courseId: course.id, studentId: student.id }
+    })
+    if (!existingEnrollment) {
+      await prisma.courseEnrollment.create({
+        data: {
+          courseId: course.id,
+          studentId: student.id,
+          status: 'ACTIVE',
+        },
+      })
+    }
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: { courseId: course.id, studentId: student.id }
+    })
+    if (!existingAttendance) {
+      await prisma.attendance.create({
+        data: {
+          courseId: course.id,
+          studentId: student.id,
+          date: new Date(),
+          status: 'PRESENT',
+        },
+      })
+    }
+  }
 
-  // Create an attendance record
-  await prisma.attendance.create({
-    data: {
-      courseId: course.id,
-      studentId: (await prisma.user.findFirst({ where: { email: 'student@unilorin.edu.ng' } })).id,
-      date: new Date(),
-      status: 'PRESENT',
-    },
-  })
-
-  console.log('Database has been seeded with test users')
+  console.log('Database has been seeded with test users (non-destructive in production)')
 }
 
 main()
