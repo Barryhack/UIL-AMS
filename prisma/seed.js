@@ -5,11 +5,13 @@ const { hash } = pkg
 const prisma = new PrismaClient()
 
 async function main() {
-  // Clean the database
-  await prisma.attendance.deleteMany()
-  await prisma.courseEnrollment.deleteMany()
-  await prisma.course.deleteMany()
-  await prisma.user.deleteMany()
+  // Only clean the database in development
+  if (process.env.NODE_ENV !== "production") {
+    await prisma.attendance.deleteMany()
+    await prisma.courseEnrollment.deleteMany()
+    await prisma.course.deleteMany()
+    await prisma.user.deleteMany()
+  }
 
   // Create admin user
   const adminPassword = await hash('admin123', 12)
@@ -99,7 +101,7 @@ async function main() {
     },
   })
 
-  console.log('Database seeded successfully!')
+  console.log('Database seeded successfully! (non-destructive in production)')
 }
 
 main()

@@ -4,14 +4,16 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  // Clear existing data
-  await prisma.attendanceRecord.deleteMany()
-  await prisma.session.deleteMany()
-  await prisma.courseEnrollment.deleteMany()
-  await prisma.course.deleteMany()
-  await prisma.biometricData.deleteMany()
-  await prisma.rFIDTag.deleteMany()
-  await prisma.user.deleteMany()
+  // Only clear existing data in development
+  if (process.env.NODE_ENV !== "production") {
+    await prisma.attendanceRecord.deleteMany()
+    await prisma.session.deleteMany()
+    await prisma.courseEnrollment.deleteMany()
+    await prisma.course.deleteMany()
+    await prisma.biometricData.deleteMany()
+    await prisma.rFIDTag.deleteMany()
+    await prisma.user.deleteMany()
+  }
 
   // Create users for different roles
   const adminUser = await prisma.user.create({
@@ -154,6 +156,7 @@ async function main() {
     courses,
     sessions,
   })
+  console.log('Database seeded successfully! (non-destructive in production)')
 }
 
 main()
