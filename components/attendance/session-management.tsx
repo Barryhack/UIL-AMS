@@ -79,7 +79,7 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
   const [showRealTime, setShowRealTime] = useState(false)
   const { data: session } = useSession()
   const router = useRouter()
-  const { isConnected } = useWebSocketContext()
+  const { isConnected, sendMessage } = useWebSocketContext()
 
   const form = useForm<z.infer<typeof sessionFormSchema>>({
     resolver: zodResolver(sessionFormSchema),
@@ -139,6 +139,20 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
       })
       if (!response.ok) throw new Error(await response.text())
       const sessionData = await response.json()
+
+      // Send websocket command to hardware if device is selected
+      if (values.deviceId && isConnected && sendMessage) {
+        sendMessage({
+          type: "start_session",
+          deviceId: values.deviceId,
+          data: {
+            sessionId: sessionData.id,
+            courseId: values.courseId,
+            lecturerId: session?.user?.id,
+            duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
+          }
+        })
+      }
 
       // Set active session and show real-time component
       setActiveSessionId(sessionData.id)
