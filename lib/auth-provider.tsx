@@ -91,25 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true)
 
-      // Special case for admin login
-      if (email === "admin@unilorin.edu.ng" && password === "admin 123") {
-        const mockUser = {
-          id: "admin-user",
-          name: "Admin User",
-          email: "admin@unilorin.edu.ng",
-          role: "ADMIN",
-        }
-
-        const mockToken = "mock-admin-token-" + Date.now()
-        localStorage.setItem("token", mockToken)
-        localStorage.setItem("user", JSON.stringify(mockUser))
-
-        setUser(mockUser)
-        setIsLoading(false)
-
-        return { success: true, message: "Login successful" }
-      }
-
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {

@@ -33,15 +33,17 @@ export function EnrollmentSimulator({ userId, userName, onComplete, onCancel }: 
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       if (activeTab === "FINGERPRINT") {
-        const mockData = generateMockFingerprintData()
-        setFingerprintData(mockData)
+        // TODO: Replace with real fingerprint data fetching from hardware or API
+        const realData = "" // fetch from real source
+        setFingerprintData(realData)
         toast({
           title: "Fingerprint Captured",
           description: "Fingerprint scan completed successfully.",
         })
       } else {
-        const mockData = generateMockRfidData()
-        setRfidData(mockData)
+        // TODO: Replace with real RFID data fetching from hardware or API
+        const realData = "" // fetch from real source
+        setRfidData(realData)
         toast({
           title: "RFID Captured",
           description: "RFID scan completed successfully.",

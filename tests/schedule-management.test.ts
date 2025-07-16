@@ -1,49 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 
 // Mock data for testing
-const mockCourses = [
-  {
-    id: "1",
-    code: "CSC 101",
-    title: "Introduction to Computer Science",
-    faculty: "Engineering",
-    department: "Computer Science",
-    lecturer: {
-      id: "1",
-      name: "Dr. John Doe",
-      email: "john.doe@unilorin.edu.ng"
-    }
-  },
-  {
-    id: "2",
-    code: "MAT 101",
-    title: "Mathematics I",
-    faculty: "Science",
-    department: "Mathematics",
-    lecturer: {
-      id: "2",
-      name: "Dr. Jane Smith",
-      email: "jane.smith@unilorin.edu.ng"
-    }
-  }
-]
-
-const mockSchedules = [
-  {
-    id: "1",
-    day: "Monday",
-    startTime: "09:00",
-    endTime: "10:00",
-    venue: "LT1",
-    course: {
-      code: "CSC 101",
-      title: "Introduction to Computer Science",
-      lecturer: {
-        name: "Dr. John Doe"
-      }
-    }
-  }
-]
+// TODO: Fetch test data from a test database or fixture for schedule management tests.
 
 // Test CSV parsing function
 function parseCSV(csvContent: string) {

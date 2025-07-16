@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = "file:/c:/temp/dev.db"
 }
 
 model User {
@@ -373,3 +373,4 @@ model Session {
 
   @@index([userId])
 }
+ 

@@ -22,58 +22,22 @@ type Activity = {
 }
 
 export function ActivityFeed() {
-  const [activities, setActivities] = useState<Activity[]>([
-    {
-      id: 1,
-      type: "attendance",
-      message: "John Doe marked attendance for CSC 401",
-      time: "Just now",
-      status: "success"
-    },
-    {
-      id: 2,
-      type: "alert",
-      message: "Device offline in Room 101",
-      time: "2 mins ago",
-      status: "error"
-    },
-    {
-      id: 3,
-      type: "registration",
-      message: "New student registration request",
-      time: "5 mins ago",
-      status: "warning"
-    },
-    {
-      id: 4,
-      type: "system",
-      message: "System backup completed",
-      time: "10 mins ago",
-      status: "success"
-    },
-    {
-      id: 5,
-      type: "attendance",
-      message: "Jane Smith marked attendance for EEE 307",
-      time: "15 mins ago",
-      status: "success"
-    }
-  ])
+  const [activities, setActivities] = useState<Activity[]>([])
 
-  // Simulate real-time updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newActivity = {
-        id: Date.now(),
-        type: "attendance",
-        message: `Student marked attendance for ${Math.random() > 0.5 ? 'CSC 401' : 'EEE 307'}`,
-        time: "Just now",
-        status: "success"
+    // TODO: Fetch real activity data from backend API
+    async function fetchActivities() {
+      try {
+        const response = await fetch('/api/activity-feed')
+        if (response.ok) {
+          const data = await response.json()
+          setActivities(data.activities)
+        }
+      } catch (error) {
+        console.error('Failed to fetch activities:', error)
       }
-      setActivities(prev => [newActivity, ...prev.slice(0, 4)])
-    }, 5000)
-
-    return () => clearInterval(interval)
+    }
+    fetchActivities()
   }, [])
 
   const getIcon = (type: Activity["type"], status?: Activity["status"]) => {

@@ -3,34 +3,9 @@ console.log('🧪 Testing HTTP Polling Implementation Locally...\n');
 
 // Test 1: Simulate ESP32 polling for commands
 function simulateESP32Polling() {
-  console.log('📱 Simulating ESP32 polling for commands...');
-  
-  const mockResponse = {
-    commands: [
-      {
-        id: 'cmd_001',
-        type: 'fingerprint_scan',
-        parameters: null,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cmd_002', 
-        type: 'start_session',
-        parameters: JSON.stringify({
-          sessionId: 'session_123',
-          courseId: 'course_456',
-          lecturerId: 'lecturer_789',
-          duration: 7200000
-        }),
-        createdAt: new Date().toISOString()
-      }
-    ]
-  };
-  
-  console.log('✅ ESP32 would receive these commands:');
-  console.log(JSON.stringify(mockResponse, null, 2));
-  
-  return mockResponse;
+  // TODO: Replace with real backend polling logic for ESP32 commands
+  // Example: fetch('/api/device/commands')
+  return null;
 }
 
 // Test 2: Simulate ESP32 sending attendance record

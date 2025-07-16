@@ -58,44 +58,6 @@ export function GenerateReportDialog({ open, onClose, onGenerate }: GenerateRepo
     return true
   }
 
-  const generateSampleData = (type: string) => {
-    if (type === "attendance") {
-      return {
-        summary: {
-          total: 120,
-          present: 95,
-          absent: 20,
-          excused: 5,
-        },
-        attendanceByDate: [
-          { date: "2024-05-01", present: 90, absent: 30 },
-          { date: "2024-05-02", present: 85, absent: 35 },
-          { date: "2024-05-03", present: 95, absent: 25 },
-          { date: "2024-05-04", present: 88, absent: 32 },
-          { date: "2024-05-05", present: 92, absent: 28 },
-        ],
-        attendanceByStudent: [
-          { name: "John Doe", attendance: 45, total: 50 },
-          { name: "Jane Smith", attendance: 48, total: 50 },
-          { name: "Mike Johnson", attendance: 42, total: 50 },
-          { name: "Sarah Williams", attendance: 47, total: 50 },
-          { name: "David Brown", attendance: 44, total: 50 },
-        ],
-      }
-    }
-    if (type === "device") {
-      return {
-        deviceStats: [
-          { name: "Fingerprint Scanner 1", usage: 1200 },
-          { name: "Fingerprint Scanner 2", usage: 980 },
-          { name: "RFID Reader 1", usage: 850 },
-          { name: "RFID Reader 2", usage: 920 },
-        ],
-      }
-    }
-    return {}
-  }
-
   const exportToPDF = async (reportElement: HTMLElement) => {
     try {
       const canvas = await html2canvas(reportElement)
@@ -122,18 +84,14 @@ export function GenerateReportDialog({ open, onClose, onGenerate }: GenerateRepo
 
     setLoading(true)
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/reports/generate', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // })
-      // if (!response.ok) throw new Error('Failed to generate report')
-      // const data = await response.json()
-
-      // Simulate API call with sample data
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      const reportData = generateSampleData(formData.type)
+      // TODO: Replace with real API call to fetch report data
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      if (!response.ok) throw new Error('Failed to generate report')
+      const reportData = await response.json()
       
       if (onGenerate) {
         onGenerate({

@@ -1,0 +1,4 @@
+id,deviceId,type,parameters,status,createdAt,sentAt,completedAt,result
+cmcekav7p0005eoxyih190nkj,UNILORIN_AMS_1,enroll_fingerprint,"{""userId"":""cmce184u70000nka24vsghxgp"",""timeout"":30000}",PROCESSED,2025-06-27 08:40:23,,1751679594128,
+cmcekecv50007eoxykiv310iz,UNILORIN_AMS_1,enroll_fingerprint,"{""userId"":""cmce184u70000nka24vsghxgp"",""timeout"":30000}",PROCESSED,2025-06-27 08:43:06,,1751679594128,
+cmcekh36q0009eoxyqvno0cig,UNILORIN_AMS_1,enroll_fingerprint,"{""userId"":""cmce184u70000nka24vsghxgp"",""timeout"":30000}",PROCESSED,2025-06-27 08:45:14,,1751679594128,

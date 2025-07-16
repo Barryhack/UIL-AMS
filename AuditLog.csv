@@ -1,0 +1,9 @@
+id,userId,action,entity,resourceId,details,ipAddress,userAgent,timestamp,createdAt
+cmcemfcli0009kl9pj298b5f7,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User AGWE BARUCH EGWE updated",,,1751017192325,1751017192325
+cmcemi574000ckl9p6nans9bg,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User Favourite Oluwatomiwa updated",,,1751017322704,1751017322704
+cmcemidvb000ekl9p77751hku,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User Favourite Oluwatomiwa updated",,,1751017333944,1751017333944
+cmcemvsfl000jkl9pd4q815mf,cmce184wg0002nka2ayac8r90,COURSE_CREATED,Course,,"Course Introduction to Matlab created",,,1751017959345,1751017959345
+cmceoj8gx000tkl9pysnb6mkh,cmce184wg0002nka2ayac8r90,BULK_SCHEDULE_IMPORT,Schedule,,"Imported 2 schedules with 0 errors",,,1751020732833,1751020732833
+cmcf76c330002wxghpjagrcfk,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User Bongbarah Fabrice updated",,,1751052043694,1751052043694
+cmcf76pqt0004wxghos37pcj8,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User Bongbarah Fabrice updated",,,1751052061398,1751052061398
+cmcf76rzo0006wxghyeaf1rbs,cmce184wg0002nka2ayac8r90,USER_UPDATED,User,,"User Bongbarah Fabrice updated",,,1751052064308,1751052064308
