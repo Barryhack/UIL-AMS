@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import * as jose from 'jose'
 import prisma from "@/lib/prisma"
-import bcrypt from "bcryptjs"
+import bcrypt from "bcrypt"
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "your-secret-key"
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Compare password (matric number) using bcryptjs
+    // Compare password (matric number) using bcrypt
     const passwordMatch = await bcrypt.compare(password, user.password)
     if (!passwordMatch) {
       console.log('Invalid password for email:', email)
