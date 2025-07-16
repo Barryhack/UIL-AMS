@@ -71,8 +71,9 @@ export const authOptions: NextAuthOptions = {
           }
 
           console.log("User found, comparing passwords")
+          console.log("[DEBUG] Raw password received:", JSON.stringify(credentials.password));
+          console.log("[DEBUG] Hash from DB:", user.password);
           const isValid = await compare(credentials.password, user.password)
-
           console.log("[DEBUG] Password comparison result:", isValid)
 
           if (!isValid) {
