@@ -240,11 +240,11 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
                           </FormControl>
                           <SelectContent>
                             {!allDevices ? (
-                              <SelectItem disabled value="">
+                              <SelectItem disabled value="__loading__">
                                 Loading devices...
                               </SelectItem>
                             ) : allDevices.length === 0 ? (
-                              <SelectItem disabled value="">
+                              <SelectItem disabled value="__none__">
                                 No devices registered
                               </SelectItem>
                             ) : (
