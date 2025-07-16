@@ -141,7 +141,14 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
       const sessionData = await response.json()
 
       // Send websocket command to hardware if device is selected
+      console.log("Attempting to send start_session command", values.deviceId, isConnected, typeof sendMessage);
       if (values.deviceId && isConnected && sendMessage) {
+        console.log("Sending start_session command via websocket", {
+          sessionId: sessionData.id,
+          courseId: values.courseId,
+          lecturerId: session?.user?.id,
+          duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
+        });
         sendMessage({
           type: "start_session",
           deviceId: values.deviceId,
