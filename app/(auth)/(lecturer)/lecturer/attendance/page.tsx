@@ -35,6 +35,12 @@ export default async function AttendancePage() {
     }
   })
 
+  // Fetch all active devices for the dropdown
+  const allDevices = await prisma.device.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { name: 'asc' }
+  })
+
   // Get active attendance sessions
   const sessions = await prisma.attendanceSession.findMany({
     where: {
@@ -110,7 +116,7 @@ export default async function AttendancePage() {
         <p className="text-muted-foreground">Create and manage attendance sessions for your courses</p>
       </div>
 
-      <SessionManagement courses={courses} />
+      <SessionManagement courses={courses} allDevices={allDevices} />
       
       <SessionList initialSessions={sessionsWithStringDates} />
     </div>
