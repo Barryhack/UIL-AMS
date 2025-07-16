@@ -50,8 +50,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
+          console.log("[DEBUG] Received credentials:", credentials)
           if (!credentials?.email || !credentials?.password) {
-            console.error("Missing credentials")
+            console.error("[DEBUG] Missing credentials")
             throw new Error("Missing credentials")
           }
 
@@ -62,6 +63,8 @@ export const authOptions: NextAuthOptions = {
             }
           })
 
+          console.log("[DEBUG] User lookup result:", user)
+
           if (!user) {
             console.error("User not found:", credentials.email)
             throw new Error("Invalid credentials")
@@ -69,6 +72,8 @@ export const authOptions: NextAuthOptions = {
 
           console.log("User found, comparing passwords")
           const isValid = await compare(credentials.password, user.password)
+
+          console.log("[DEBUG] Password comparison result:", isValid)
 
           if (!isValid) {
             console.error("Invalid password for user:", credentials.email)
@@ -83,7 +88,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role as UserRole,
           }
         } catch (error) {
-          console.error("Auth error:", error)
+          console.error("[DEBUG] Auth error:", error)
           return null
         }
       }
