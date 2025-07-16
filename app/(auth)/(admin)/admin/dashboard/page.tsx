@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic";
+
 import { Overview } from "@/components/admin/overview";
 
 export default function AdminDashboardPage() {
