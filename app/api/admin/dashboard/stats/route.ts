@@ -77,29 +77,20 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // Get attendance stats for the last 6 months
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    // Get attendance stats for the last 6 months, grouped by month
+    const attendanceStats = await prisma.$queryRaw`
+      SELECT
+        to_char(date, 'Mon YYYY') as month,
+        COUNT(id) as count
+      FROM "Attendance"
+      WHERE date >= NOW() - INTERVAL '6 months'
+      GROUP BY month
+      ORDER BY MIN(date)
+    ` as any[];
 
-    const attendanceStats = await prisma.attendance.groupBy({
-      by: ["date"],
-      where: {
-        date: {
-          gte: sixMonthsAgo,
-        },
-      },
-      _count: {
-        id: true,
-      },
-      orderBy: {
-        date: "asc",
-      },
-    })
-
-    // Format attendance stats for the chart
-    const formattedStats = attendanceStats.map((stat: AttendanceStat) => ({
-      name: stat.date.toLocaleDateString("en-US", { month: "short" }),
-      value: (stat._count.id / totalStudents) * 100, // Convert to percentage
+    const formattedStats = attendanceStats.map((stat: any) => ({
+      name: stat.month,
+      value: (Number(stat.count) / totalStudents) * 100,
     }))
 
     return NextResponse.json({
