@@ -144,8 +144,14 @@ function setupWSServer(server: http.Server | https.Server, isSecure: boolean) {
         // Relay device_command to hardware
         if (message.type === 'device_command' && message.deviceId) {
           const target = Array.from(clients).find(c => c.deviceId === message.deviceId && c.readyState === WebSocket.OPEN)
-          if (target) target.send(JSON.stringify(message))
-          else ws.send(JSON.stringify({ type: 'error', message: 'Target device not found or not connected.' }))
+          if (target) {
+            // Forward the command to the device
+            console.log(`[FORWARD] Sending ${message.command} to device ${message.deviceId}:`, message)
+            target.send(JSON.stringify(message))
+          } else {
+            console.log(`[ERROR] Target device ${message.deviceId} not found or not connected`)
+            ws.send(JSON.stringify({ type: 'error', message: 'Target device not found or not connected.' }))
+          }
           return
         }
         

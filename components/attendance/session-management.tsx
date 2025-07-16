@@ -150,12 +150,15 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
           duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
         });
         sendMessage({
-          command: "start_session",
+          type: "device_command",
           deviceId: values.deviceId,
-          sessionId: sessionData.id,
-          courseId: values.courseId,
-          lecturerId: session?.user?.id,
-          duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
+          command: "start_session",
+          parameters: {
+            sessionId: sessionData.id,
+            courseId: values.courseId,
+            lecturerId: session?.user?.id,
+            duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
+          }
         })
       }
 
