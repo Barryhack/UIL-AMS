@@ -36,6 +36,8 @@ wss.on('connection', (ws, request) => {
 
       if (
         message.command === 'create_attendance_session' ||
+        message.command === 'start_session' ||
+        message.command === 'stop_session' ||
         message.command === 'register_user' ||
         message.command === 'fingerprint' ||
         message.command === 'rfid'

@@ -74,6 +74,7 @@ const char* wsApiKey = "local-development-key";
 bool sessionActive = false;
 String currentSessionId = "";
 unsigned long sessionStartTime = 0;
+unsigned long sessionEndTime = 0;
 
 // Scan modes
 bool scanFingerprintMode = false;
@@ -137,6 +138,13 @@ void setup() {
 void loop() {
   unsigned long currentTime = millis();
   if (wsConnected) wsClient.poll();
+  
+  // Check if session has expired
+  if (sessionActive && sessionEndTime > 0 && currentTime >= sessionEndTime) {
+    Serial.println("[Session] Session expired, ending automatically");
+    exitSessionMode();
+  }
+  
   if (currentTime - lastStatusUpdate >= statusUpdateInterval) {
     displayStatus();
     lastStatusUpdate = currentTime;
@@ -299,7 +307,8 @@ void handleWebSocketMessage(const String& msg) {
   String cmd = doc["command"].as<String>();
   if (cmd == "start_session") {
     String sessionId = doc["sessionId"] | "";
-    enterSessionMode(sessionId);
+    unsigned long duration = doc["duration"] | 7200000; // Default 2 hours if not provided
+    enterSessionMode(sessionId, duration);
   } else if (cmd == "stop_session") {
     exitSessionMode();
   } else if (cmd == "fingerprint" && doc.containsKey("action")) {
@@ -341,12 +350,13 @@ void enterOfflineMode() {
   setLEDStatus();
   beepWarning();
 }
-void enterSessionMode(String sessionId) {
+void enterSessionMode(String sessionId, unsigned long duration = 7200000) {
   currentMode = SESSION_MODE;
   sessionActive = true;
   currentSessionId = sessionId;
   sessionStartTime = millis();
-  displayMessage("Session Started\nID: " + sessionId + "\nRecording attendance...");
+  sessionEndTime = sessionStartTime + duration;
+  displayMessage("Session Started\nID: " + sessionId + "\nDuration: " + String(duration/60000) + "min\nRecording attendance...");
   setLEDStatus();
   beepSuccess();
 }
@@ -354,6 +364,7 @@ void exitSessionMode() {
   sessionActive = false;
   currentSessionId = "";
   sessionStartTime = 0;
+  sessionEndTime = 0;
   if (isOnline && wsConnected) currentMode = ONLINE_MODE;
   else currentMode = OFFLINE_MODE;
   displayMessage("Session Ended");
