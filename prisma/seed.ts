@@ -33,6 +33,19 @@ function randomStatus() {
   return 'ABSENT'
 }
 
+function randomFingerprintStatus() {
+  const r = Math.random()
+  if (r < 0.85) return 'VERIFIED' // 85% success rate
+  if (r < 0.95) return 'PRESENT'
+  return 'FAILED'
+}
+
+function randomVerificationMethod() {
+  const r = Math.random()
+  if (r < 0.7) return 'FINGERPRINT' // 70% fingerprint, 30% RFID
+  return 'RFID'
+}
+
 async function main() {
   // 1. Ensure 3 lecturers
   for (const l of lecturersData) {
@@ -131,6 +144,91 @@ async function main() {
       }
     }
   }
+
+  // 8. Create fingerprint attendance records for analytics
+  console.log('Creating fingerprint attendance records...')
+  const sessions = await prisma.attendanceSession.findMany({
+    include: { course: true }
+  })
+  
+  for (const session of sessions) {
+    for (const student of students) {
+      // Check if attendance record already exists
+      const recordExists = await prisma.attendanceRecord.findFirst({
+        where: {
+          sessionId: session.id,
+          studentId: student.id,
+        },
+      })
+      
+      if (!recordExists) {
+        const verificationMethod = randomVerificationMethod()
+        const status = randomFingerprintStatus()
+        
+        await prisma.attendanceRecord.create({
+          data: {
+            sessionId: session.id,
+            studentId: student.id,
+            deviceId: 'demo-device-001', // Demo device ID
+            verificationMethod: verificationMethod,
+            status: status,
+            type: 'IN',
+            timestamp: new Date(session.startTime.getTime() + Math.random() * 7200000), // Random time within session
+            metadata: JSON.stringify({
+              deviceType: 'ESP32',
+              location: session.location || 'Demo Room',
+              scanQuality: verificationMethod === 'FINGERPRINT' ? Math.floor(Math.random() * 100) + 50 : null,
+              confidence: verificationMethod === 'FINGERPRINT' ? Math.random() * 0.3 + 0.7 : null,
+            })
+          },
+        })
+      }
+    }
+  }
+
+  // 9. Create some device status records for error analytics
+  console.log('Creating device status records...')
+  const deviceStatuses = [
+    { status: 'ONLINE', message: 'Device connected successfully' },
+    { status: 'ERROR', message: 'Fingerprint sensor malfunction' },
+    { status: 'ERROR', message: 'Network connection timeout' },
+    { status: 'ONLINE', message: 'Device operating normally' },
+    { status: 'ERROR', message: 'SD card write error' },
+  ]
+  
+  for (const deviceStatus of deviceStatuses) {
+    await prisma.deviceStatus.create({
+      data: {
+        deviceId: 'demo-device-001',
+        status: deviceStatus.status,
+        message: deviceStatus.message,
+        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random time in last week
+      },
+    })
+  }
+
+  // 10. Create some audit log entries for API failure analytics
+  console.log('Creating audit log entries...')
+  const auditActions = [
+    'API_ERROR: Authentication failed',
+    'API_ERROR: Database connection timeout',
+    'API_ERROR: Invalid request format',
+    'API_ERROR: Rate limit exceeded',
+    'API_ERROR: Service unavailable',
+  ]
+  
+  for (const action of auditActions) {
+    await prisma.auditLog.create({
+      data: {
+        action: action,
+        details: `Demo audit log entry for analytics testing`,
+        userId: students[0].id, // Use first student as demo user
+        entity: 'System',
+        timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random time in last month
+      },
+    })
+  }
+
   console.log('Demo data seeded!')
 }
 
