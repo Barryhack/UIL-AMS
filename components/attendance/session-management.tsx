@@ -143,21 +143,19 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
       // Send websocket command to hardware if device is selected
       console.log("Attempting to send start_session command", values.deviceId, isConnected, typeof sendMessage);
       if (values.deviceId && isConnected && sendMessage) {
-        console.log("Sending start_session command via websocket", {
+        console.log("Sending start_session command via websocket (FLAT PAYLOAD)", {
           sessionId: sessionData.id,
           courseId: values.courseId,
           lecturerId: session?.user?.id,
           duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
         });
         sendMessage({
-          type: "start_session",
+          command: "start_session",
           deviceId: values.deviceId,
-          data: {
-            sessionId: sessionData.id,
-            courseId: values.courseId,
-            lecturerId: session?.user?.id,
-            duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
-          }
+          sessionId: sessionData.id,
+          courseId: values.courseId,
+          lecturerId: session?.user?.id,
+          duration: (endDateTime.getTime() - startDateTime.getTime()) || 7200000
         })
       }
 
