@@ -10,7 +10,6 @@
     "start:next": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "db:seed": "prisma db seed",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
