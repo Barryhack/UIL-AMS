@@ -59,7 +59,7 @@ export default async function RegistrationPage() {
       <div className="grid gap-4">
         {courses.map((course) => {
           const isEnrolled = enrolledCourseIds.has(course.id)
-          const isFull = course.enrollments.length >= course.maxCapacity
+          const isFull = (course.enrollments ?? []).length >= course.maxCapacity
 
           return (
             <Card key={course.id} className="p-6">
@@ -74,7 +74,7 @@ export default async function RegistrationPage() {
                   <p className="text-muted-foreground">{course.title}</p>
                   <p className="text-sm">Lecturer: {course.lecturer.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {course.enrollments.length} / {course.maxCapacity} students enrolled
+                    {(course.enrollments ?? []).length} / {course.maxCapacity} students enrolled
                   </p>
                 </div>
                 <form action={async () => {
