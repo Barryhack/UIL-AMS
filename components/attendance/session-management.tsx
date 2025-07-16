@@ -50,7 +50,7 @@ interface Course {
 
 interface SessionManagementProps {
   courses: Course[]
-  allDevices: Device[]
+  allDevices?: Device[]
   preselectedCourseId?: string
   onSessionCreated?: () => void
 }
@@ -239,7 +239,11 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
                             <SelectTrigger><SelectValue placeholder="Select a hardware device" /></SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {allDevices.length === 0 ? (
+                            {!allDevices ? (
+                              <SelectItem disabled value="">
+                                Loading devices...
+                              </SelectItem>
+                            ) : allDevices.length === 0 ? (
                               <SelectItem disabled value="">
                                 No devices registered
                               </SelectItem>
