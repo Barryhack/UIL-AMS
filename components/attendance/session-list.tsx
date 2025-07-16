@@ -188,7 +188,7 @@ export function SessionList({ initialSessions }: SessionListProps) {
                     )}
                     <div className="flex items-center text-sm">
                       <UserCheck className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>{attendanceSession.records.length} students recorded</span>
+                      <span>{(attendanceSession.records ?? []).length} students recorded</span>
                     </div>
                   </div>
 

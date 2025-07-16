@@ -146,7 +146,7 @@ export default async function AttendancePage() {
             </Card>
           ))}
 
-          {recentAttendance.length === 0 && (
+          {(recentAttendance ?? []).length === 0 && (
             <Card className="p-8 text-center text-muted-foreground">
               No attendance records found
             </Card>

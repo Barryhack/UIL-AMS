@@ -36,8 +36,8 @@ export default async function RegistrationPage() {
     }
   }) as Course[]
 
-  const registeredCourses = courses.filter(course => course.enrollments.length > 0)
-  const availableCourses = courses.filter(course => course.enrollments.length === 0)
+  const registeredCourses = courses.filter(course => (course.enrollments ?? []).length > 0)
+  const availableCourses = courses.filter(course => (course.enrollments ?? []).length === 0)
 
   return (
     <div className="space-y-6">
