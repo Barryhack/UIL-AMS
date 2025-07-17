@@ -28,6 +28,7 @@ interface Device {
   serialNumber: string
   mode: string
   status: string
+  deviceId: string
 }
 
 interface Schedule {
@@ -271,7 +272,7 @@ export function SessionManagement({ courses, allDevices, preselectedCourseId, on
                               </SelectItem>
                             ) : (
                               allDevices.map((device) => (
-                                <SelectItem key={device.id} value={device.id}>
+                                <SelectItem key={device.id} value={device.deviceId}>
                                   {device.name} ({device.mode})
                                 </SelectItem>
                               ))
