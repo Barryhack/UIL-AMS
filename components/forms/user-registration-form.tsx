@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
@@ -22,13 +21,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Fingerprint, CreditCard, Loader2, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2 } from "lucide-react"
 import { faculties } from "@/lib/constants/faculties"
 import { userRegistrationSchema, type UserRegistrationData } from "@/lib/schemas/user"
-import { HardwareScanner } from "./HardwareScanner"
-import { useWebSocketContext } from "@/lib/websocket-context"
-import { BiometricEnrollmentForm } from "@/components/biometrics/enrollment-form";
+import { BiometricEnrollmentForm } from "@/components/biometrics/enrollment-form"
 
 interface UserRegistrationFormProps {
   open: boolean
@@ -37,17 +33,11 @@ interface UserRegistrationFormProps {
 
 export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [scanMode, setScanMode] = useState<'SCAN' | 'ENROLL' | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [biometricData, setBiometricData] = useState<string | null>(null)
-  const [rfidData, setRfidData] = useState<string | null>(null)
   const [selectedFaculty, setSelectedFaculty] = useState<string>("")
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const [registrationStep, setRegistrationStep] = useState(1) // 1: basic info, 2: biometric
   const [createdUserId, setCreatedUserId] = useState<string | null>(null)
   const [devices, setDevices] = useState<any[]>([])
   const [devicesLoading, setDevicesLoading] = useState(false)
-  const { lastScanEvent } = useWebSocketContext();
 
   const form = useForm<UserRegistrationData>({
     resolver: zodResolver(userRegistrationSchema),
@@ -56,156 +46,91 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
     },
   })
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = form
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = form
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     
-    setCreatedUserId(null);
-    setRegistrationStep(1);
-    setBiometricData(null);
-    setRfidData(null);
-    setSelectedFaculty("");
-    setSelectedDepartment("");
+    // Reset form state when dialog opens or closes
+    form.reset()
+    setCreatedUserId(null)
+    setRegistrationStep(1)
+    setSelectedFaculty("")
     
-    setDevicesLoading(true);
+    // Fetch devices
+    setDevicesLoading(true)
     fetch("/api/admin/devices", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         setDevices(Array.isArray(data) ? data : [])
         setDevicesLoading(false)
       })
-      .catch(() => setDevicesLoading(false))
-  }, [open])
-
-  // Listen for real-time scan events during biometric step
-  useEffect(() => {
-    if (registrationStep === 2 && lastScanEvent) {
-      if (lastScanEvent.scanType === "fingerprint") {
-        handleFingerprintScanned(lastScanEvent.data);
-      } else if (lastScanEvent.scanType === "rfid") {
-        handleRFIDScanned(lastScanEvent.data);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastScanEvent, registrationStep]);
+      .catch(() => {
+        toast.error("Failed to load devices.")
+        setDevicesLoading(false)
+      })
+  }, [open, form])
 
   const handleFacultyChange = (facultyId: string) => {
     setSelectedFaculty(facultyId)
-    setSelectedDepartment("")
     setValue("department", "")
   }
 
   const handleBasicInfoSubmit = async (data: UserRegistrationData) => {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const email = data.email;
-      const matricNumber = data.matricNumber || "";
-      
-      if (!email.endsWith("@students.unilorin.edu.ng") && !email.endsWith("@staff.unilorin.edu.ng")) {
-        throw new Error("Email must be in format: username@students.unilorin.edu.ng or username@staff.unilorin.edu.ng");
-      }
-      
       if (!data.deviceId) {
-        throw new Error("Device assignment is required");
+        throw new Error("Device assignment is required")
       }
-      if (!selectedDepartment) {
-        throw new Error("Department is required");
-      }
-      
-      const userData = {
-        name: `${data.firstName} ${data.lastName}`,
-        email,
-        password: data.password,
-        confirmPassword: data.confirmPassword,
-        matricNumber: data.role === "STUDENT" ? matricNumber : undefined,
-        staffId: data.role === "LECTURER" ? data.staffId : undefined,
-        faculty: selectedFaculty,
-        department: selectedDepartment,
-        role: data.role,
-        deviceId: data.deviceId,
-      };
       
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
+        body: JSON.stringify({
+          ...data,
+          name: `${data.firstName} ${data.lastName}`,
+          faculty: selectedFaculty,
+        }),
+      })
       
-      const result = await response.json();
+      const result = await response.json()
       if (!response.ok) {
-        throw new Error(result.error || "Failed to register user");
+        throw new Error(result.error || "Failed to register user")
       }
       
-      setCreatedUserId(result.user.id);
-      setRegistrationStep(2);
-      toast.success("Basic info saved. Proceed to scan fingerprint and RFID.");
+      setCreatedUserId(result.user.id)
+      setRegistrationStep(2)
+      toast.success("Basic info saved. Proceed to biometric enrollment.")
     } catch (error) {
-      console.error("Registration error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to register user");
+      console.error("Registration error:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to register user")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
-
-  const handleBiometricUpdate = async (updateData: { fingerprintId?: string; rfidUid?: string }) => {
-    if (!createdUserId) {
-      toast.error("No user selected for biometric update.");
-      return;
-    }
-    try {
-      const response = await fetch(`/api/users/${createdUserId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update biometric data.');
-      }
-      toast.success('Biometric data saved successfully!');
-    } catch (error) {
-      console.error('Biometric update error:', error);
-      toast.error(error instanceof Error ? error.message : 'An unknown error occurred.');
-    }
-  };
-
-  const handleFingerprintScanned = (data: string) => {
-    setBiometricData(data)
-    setScanMode(null)
-    toast.success("Fingerprint scan completed")
-    handleBiometricUpdate({ fingerprintId: data })
   }
 
-  const handleRFIDScanned = (data: string) => {
-    setRfidData(data)
-    setScanMode(null)
-    toast.success("RFID card scanned successfully")
-    handleBiometricUpdate({ rfidUid: data })
+  const handleBiometricComplete = (data: { fingerprintData?: string; rfidData?: string }) => {
+    // The BiometricEnrollmentForm already handles the API calls to update the user.
+    // We just need to show a final success message and close the dialog.
+    toast.success("User registration complete!")
+    onClose()
   }
 
-  const handleFingerprintEnrolled = (data: string) => {
-    setBiometricData(data)
-    setScanMode(null)
-    toast.success("Fingerprint enrolled successfully")
-    handleBiometricUpdate({ fingerprintId: data })
-  }
-
-  const onSubmit = async (data: UserRegistrationData) => {
-    if (registrationStep === 1) {
-      await handleBasicInfoSubmit(data);
+  const handleDialogClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose()
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Add New User</DialogTitle>
         </DialogHeader>
         
         {registrationStep === 1 ? (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(handleBasicInfoSubmit)} className="space-y-6">
             <Card>
               <CardContent className="space-y-4 pt-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -239,6 +164,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                     id="email"
                     type="email"
                     {...register("email")}
+                    placeholder="user@students.unilorin.edu.ng or user@unilorin.edu.ng"
                     className={errors.email ? "border-red-500" : ""}
                   />
                   {errors.email && (
@@ -277,7 +203,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                   <Label htmlFor="role">Role</Label>
                   <Select
                     value={watch("role")}
-                    onValueChange={value => setValue("role", value as "ADMIN" | "LECTURER" | "STUDENT")}
+                    onValueChange={(value) => setValue("role", value as "ADMIN" | "LECTURER" | "STUDENT")}
                   >
                     <SelectTrigger id="role">
                       <SelectValue placeholder="Select role" />
@@ -316,7 +242,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                     <Label htmlFor="department">Department</Label>
                     <Select
                       value={watch("department") || ""}
-                      onValueChange={value => setValue("department", value)}
+                      onValueChange={(value) => setValue("department", value)}
                       disabled={!selectedFaculty}
                     >
                       <SelectTrigger id="department">
@@ -370,7 +296,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                   <Label htmlFor="deviceId">Assign Device</Label>
                   <Select
                     value={watch("deviceId") || ""}
-                    onValueChange={value => setValue("deviceId", value)}
+                    onValueChange={(value) => setValue("deviceId", value)}
                     disabled={devicesLoading || devices.length === 0}
                   >
                     <SelectTrigger id="deviceId">
@@ -379,7 +305,7 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
                     <SelectContent>
                       {devices.map(device => (
                         <SelectItem key={device.id} value={device.id}>
-                          {device.name} ({device.macAddress || device.deviceId || device.serialNumber})
+                          {device.name} ({device.macAddress || device.deviceId || "N/A"})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -406,15 +332,10 @@ export function UserRegistrationForm({ open, onClose }: UserRegistrationFormProp
         ) : (
           <BiometricEnrollmentForm
             userId={createdUserId!}
-            userName={form.getValues("firstName") + " " + form.getValues("lastName")}
-            deviceId={form.getValues("deviceId")}
-            onComplete={() => {
-              toast.success("Biometric enrollment complete!");
-                  onClose();
-                }}
-            onCancel={() => {
-              setRegistrationStep(1);
-            }}
+            userName={`${form.getValues("firstName")} ${form.getValues("lastName")}`}
+            deviceId={form.getValues("deviceId")!}
+            onComplete={handleBiometricComplete}
+            onCancel={() => setRegistrationStep(1)}
           />
         )}
       </DialogContent>

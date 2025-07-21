@@ -81,7 +81,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
             [message.deviceId]: message.status
           }).includes('online'));
         } else if (message.type === "enroll_result") {
-          setLastEnrollmentResult(message);
+          const finalMessage = { ...message };
+          // HACK: The hardware sends enroll_result for fingerprint without a `method`.
+          // The RFID enrollment flow *does* include it.
+          // To unify the interface for the UI components, we'll add it here if it's missing.
+          if (finalMessage.fingerprintId && !finalMessage.method) {
+            finalMessage.method = "fingerprint";
+          }
+          setLastEnrollmentResult(finalMessage);
         }
       } catch (err) {
         // Ignore parse errors
